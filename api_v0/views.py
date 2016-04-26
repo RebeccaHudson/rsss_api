@@ -20,6 +20,7 @@ from rest_framework.views import APIView
 #from rest_framework import mixins 
 from django.http import Http404
 
+from rest_framework import status 
 
 #this works, leave it as an example...
 class ScoresRowList(APIView):
@@ -59,12 +60,41 @@ class OneScoresRowSnp(APIView):
     serializer = ScoresRowSerializer(scores_row)
     return Response(serializer.data) 
 
+#The class below might be useful for a CBV approach.
+#But I'm going to start with something more minimal for now.
+"""
+class ScoresRowList(APIView):
+  def get_scores_by_snpid(self, snp_ids):
+    scoresrows_to_return = []
+    for one_snpid in snp_ids:
+      one_scoresrow = ScoresRow.objects.get(snpid=one_snpid)
+      scoresrows_to_return.push(one_scoresrow) 
 
+
+  #look up each of the scores, list and return them 
+"""
 
 @api_view(['GET', 'POST'])
-def dummy(request):
+def scores_row_list(request):
   if request.method == 'GET':
     serializer = serializers.Serializer("this is some text") 
     return Response(serializer.data) #does this work?
-  else: 
+  elif request.method == 'POST': 
+    print "watch out!" 
+    print str(request.data)  #expect this to be a list of quoted strings...
+    scoresrows_to_return = []
+    for one_snpid in request.data:
+      print "one snp: " + one_snpid
+      one_scoresrow = ScoresRow.objects.filter(snpid=one_snpid) #do I already have dupes?
+      print(str(one_scoresrow.first()))
+      scoresrows_to_return.append(one_scoresrow.first()) 
+    serializer = ScoresRowSerializer(scoresrows_to_return, many = True)
+    return Response(serializer.data)
+  else:
     return Response('not the right response', status=status.HTTP_400_BAD_REQUEST)
+
+
+
+
+
+
