@@ -18,6 +18,7 @@ from rest_framework.response import Response
 
 from rest_framework.views import APIView
 #from rest_framework import mixins 
+from django.http import Http404
 
 
 #this works, leave it as an example...
@@ -41,6 +42,20 @@ class OneScoresRow(APIView):
 
   def get(self, request, pk, format = None):
     scores_row = self.get_object_by_id(pk)
+    serializer = ScoresRowSerializer(scores_row)
+    return Response(serializer.data) 
+
+
+#specify one snpid and lookup one scoresrow
+class OneScoresRowSnp(APIView):
+  def get_object_by_snpid(self, rsnp):
+    try:
+      rsnp = 'rs' + str(rsnp)
+      return ScoresRow.objects.get(snpid=rsnp)
+    except ScoresRow.DoesNotExist:
+      raise Http404
+  def get(self, request, snp, format = None):
+    scores_row = self.get_object_by_snpid(snp)
     serializer = ScoresRowSerializer(scores_row)
     return Response(serializer.data) 
 
