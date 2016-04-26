@@ -14,7 +14,8 @@ from rest_framework.urlpatterns import format_suffix_patterns
 urlpatterns = format_suffix_patterns([
   url(r'scores/$', views.ScoresRowList.as_view()),
   url(r'dummy/$', views.dummy),
-  url(r'^one-scores/(?P<pk>[0-9]+)/$', views.OneScoresRow.as_view()),
+  url(r'one-scores/(?P<pk>[0-9]+)/$', views.OneScoresRow.as_view()),
+  url(r'one-scores-snpid/rs(?P<snp>[0-9]+)/$', views.OneScoresRowSnp.as_view()), 
 ] )
 
 
