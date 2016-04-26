@@ -17,18 +17,10 @@ from rest_framework import serializers
 from rest_framework.response import Response
 
 from rest_framework.views import APIView
-
 #from rest_framework import mixins 
 
-#basic response...
-class ScoresRowViewSet(viewsets.ReadOnlyModelViewSet):
-    """ 
-    This viewset automatically provides `list` and `detail` actions.
-    """
-    queryset = ScoresRow.objects.all()
-    serializer_class = ScoresRowSerializer
 
-
+#this works, leave it as an example...
 class ScoresRowList(APIView):
   """
    this should ultimately take a list of snpIDs
@@ -37,6 +29,20 @@ class ScoresRowList(APIView):
     scores_rows = ScoresRow.objects.all()[:3] #change this later...
     serializer = ScoresRowSerializer(scores_rows, many=True)
     return Response(serializer.data)
+
+
+
+class OneScoresRow(APIView):
+  def get_object_by_id(self, pk):
+    try:
+      return ScoresRow.objects.get(pk = pk)
+    except ScoresRow.DoesNotExist:
+      raise Http404
+
+  def get(self, request, pk, format = None):
+    scores_row = self.get_object_by_id(pk)
+    serializer = ScoresRowSerializer(scores_row)
+    return Response(serializer.data) 
 
 
 
