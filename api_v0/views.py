@@ -52,7 +52,11 @@ class OneScoresRowSnp(APIView):
   def get_object_by_snpid(self, rsnp):
     try:
       rsnp = 'rs' + str(rsnp)
-      return ScoresRow.objects.get(snpid=rsnp)
+      
+      return ScoresRow.objects.filter(snpid=rsnp).first()
+      #return ScoresRow.objects.get(snpid=rsnp)
+      #TODO: This data is not as unique as I expect
+
     except ScoresRow.DoesNotExist:
       raise Http404
   def get(self, request, snp, format = None):
@@ -85,8 +89,10 @@ def scores_row_list(request):
     scoresrows_to_return = []
     for one_snpid in request.data:
       print "one snp: " + one_snpid
-      one_scoresrow = ScoresRow.objects.filter(snpid=one_snpid) #do I already have dupes?
-      print(str(one_scoresrow.first()))
+      #the line below should REALLY be get. 
+      #It looks like there's snp duplicates for some reason
+      one_scoresrow = ScoresRow.objects.filter(snpid=one_snpid)
+      print("Found " + str(len(one_scoresrow)) + " rows for " + one_snpid )
       scoresrows_to_return.append(one_scoresrow.first()) 
     serializer = ScoresRowSerializer(scoresrows_to_return, many = True)
     return Response(serializer.data)
