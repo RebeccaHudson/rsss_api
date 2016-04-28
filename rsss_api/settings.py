@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'api_v0.apps.ApiV0Config',
     'rest_framework',
+    'test_without_migrations',
 ]
 
 MIDDLEWARE_CLASSES = [
@@ -71,7 +72,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'rsss_api.wsgi.application'
-
+#
 
 # Database
 # https://docs.djangoproject.com/en/1.9/ref/settings/#databases
@@ -91,6 +92,9 @@ DATABASES = {
      'PASSWORD' : 'tester',
      'HOST'     : 'fugu.biostat.wisc.edu',
      'PORT'     : '3306',
+     'TEST'     : {  
+        'NAME'   :  'dogsofwar' ,
+      }
    }
 }
 
