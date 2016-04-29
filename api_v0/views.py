@@ -64,26 +64,10 @@ class OneScoresRowSnp(APIView):
     serializer = ScoresRowSerializer(scores_row)
     return Response(serializer.data) 
 
-#The class below might be useful for a CBV approach.
-#But I'm going to start with something more minimal for now.
-"""
-class ScoresRowList(APIView):
-  def get_scores_by_snpid(self, snp_ids):
-    scoresrows_to_return = []
-    for one_snpid in snp_ids:
-      one_scoresrow = ScoresRow.objects.get(snpid=one_snpid)
-      scoresrows_to_return.push(one_scoresrow) 
-
-
-  #look up each of the scores, list and return them 
-"""
 
 @api_view(['GET', 'POST'])
 def scores_row_list(request):
-  if request.method == 'GET':
-    serializer = serializers.Serializer("this is some text") 
-    return Response(serializer.data) #does this work?
-  elif request.method == 'POST': 
+  if request.method == 'POST': 
     print "watch out!" 
     print str(request.data)  #expect this to be a list of quoted strings...
     scoresrows_to_return = []
