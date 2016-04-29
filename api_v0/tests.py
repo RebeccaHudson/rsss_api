@@ -54,25 +54,36 @@ class ScoresRowTests(APITestCase):
           expected_output = json.load(data_file)
           self.assertEqual(response_data, expected_output)
     
-   def test_retrieve_one_row_by_id(self):
+    def test_retrieve_one_row_by_id(self):
       url = reverse('api_v0:one-scores', args=(23,))
       response = self.client.get(url) 
       self.compare_response(response.data, 'test_retrieve_one_row')
+      self.assertEqual(response.status_code, status.HTTP_200_OK)
     
     def test_retrieve_one_row_by_snpid(self):
       #the line below returns the snp: 'rs561784591'
       url = reverse('api_v0:one-scores-snpid', args=(561784591,))
       response = self.client.get(url) 
       self.compare_response(response.data, 'test_retrieve_row_by_snpid')
-  #  def test_scores_row_list_snpids(self):
-  #   pass
-  #   #There is some post data handled down here... 
-  #   # data = {'name': 'DabApps'}
-  #   # response = self.client.post(url, data, format='json')
-  #   # self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-  #   # self.assertEqual(Account.objects.count(), 1)
-  #   # self.assertEqual(Account.objects.get().name, 'DabApps')
+      self.assertEqual(response.status_code, status.HTTP_200_OK)
 
+    def test_scores_row_list_for_three_snpids(self):
+      req_headers = { 'content-type' : 'application/json' }
+      snpid_list = [ "rs376997626", "rs575624833", "rs189241347"]
+      url = reverse('api_v0:search')
+      response = self.client.post(url, snpid_list, format='json')
+      self.compare_response(response.data,'test_scores_row_list_for_three_snpids')
+      self.assertEqual(response.status_code, status.HTTP_200_OK)
 
 
   #TODO: Add tests for unexpected and/or malformed requests.
+"""
+  Some should be these:
+  HTTP_500_INTERNAL_SERVER_ERROR
+  HTTP_501_NOT_IMPLEMENTED
+  HTTP_502_BAD_GATEWAY
+  HTTP_503_SERVICE_UNAVAILABLE
+  HTTP_504_GATEWAY_TIMEOUT
+  HTTP_505_HTTP_VERSION_NOT_SUPPORTED
+  HTTP_511_NETWORK_AUTHENTICATION_REQUIRED
+"""
