@@ -12,6 +12,7 @@ import os
 class ScoresRowTests(APITestCase):
 
     def setUp(self):
+      connection.cursor().db.set_rollback(False)  
       c = connection.cursor()
       c.execute('SHOW TABLES')
       resp = c.fetchall() 
