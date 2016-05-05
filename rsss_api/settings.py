@@ -93,7 +93,7 @@ DATABASES = {
      'HOST'     : 'fugu.biostat.wisc.edu',
      'PORT'     : '3306',
      'TEST'     : {  
-        'NAME'   :  'dogsofwar' ,
+        'NAME'   :  'subset_db_for_testing' ,
       }
    }
 }
