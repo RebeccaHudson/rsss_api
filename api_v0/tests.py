@@ -68,6 +68,12 @@ class ScoresRowTests(APITestCase):
       self.compare_response(response.data, 'test_retrieve_row_by_snpid')
       self.assertEqual(response.status_code, status.HTTP_200_OK)
 
+    def test_nomatch_response_for_retrieve_one_row_by_snpid(self):
+      url = reverse('api_v0:one-scores-snpid', args=(6666666666,))
+      response = self.client.get(url)
+      self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+
     def test_scores_row_list_for_three_snpids(self):
       req_headers = { 'content-type' : 'application/json' }
       snpid_list = [ "rs376997626", "rs575624833", "rs189241347"]
@@ -75,6 +81,8 @@ class ScoresRowTests(APITestCase):
       response = self.client.post(url, snpid_list, format='json')
       self.compare_response(response.data,'test_scores_row_list_for_three_snpids')
       self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
 
 
   #TODO: Add tests for unexpected and/or malformed requests.

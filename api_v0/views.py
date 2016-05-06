@@ -39,7 +39,8 @@ class OneScoresRow(APIView):
     try:
       return ScoresRow.objects.get(pk = pk)
     except ScoresRow.DoesNotExist:
-      raise Http404
+      return Response('Nothing with that ID',
+                       status=status.HTTP_204_NO_CONTENT) 
 
   def get(self, request, pk, format = None):
     scores_row = self.get_object_by_id(pk)
@@ -47,22 +48,26 @@ class OneScoresRow(APIView):
     return Response(serializer.data) 
 
 
-#specify one snpid and lookup one scoresrow
 class OneScoresRowSnp(APIView):
   def get_object_by_snpid(self, rsnp):
     try:
       rsnp = 'rs' + str(rsnp)
-      
-      return ScoresRow.objects.filter(snpid=rsnp).first()
-      #return ScoresRow.objects.get(snpid=rsnp)
+      #the line below will force this to work even if snpids are 
+      #not unique in the search space. 
+      #return ScoresRow.objects.filter(snpid=rsnp).first()
+      return ScoresRow.objects.get(snpid=rsnp)
       #TODO: This data is not as unique as I expect
-
     except ScoresRow.DoesNotExist:
-      raise Http404
+      return None
+
   def get(self, request, snp, format = None):
     scores_row = self.get_object_by_snpid(snp)
+    if scores_row is None:
+      return Response('No data for that SNPid',
+                    status=status.HTTP_204_NO_CONTENT) 
     serializer = ScoresRowSerializer(scores_row)
     return Response(serializer.data) 
+
 
 
 @api_view(['GET', 'POST'])
