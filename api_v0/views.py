@@ -33,7 +33,7 @@ class ScoresRowList(APIView):
     return Response(serializer.data)
 
 
-
+#This is the only view that returns ONLY one row of data.
 class OneScoresRow(APIView):
   def get_object_by_id(self, pk):
     try:
@@ -49,23 +49,14 @@ class OneScoresRow(APIView):
 
 
 class OneScoresRowSnp(APIView):
-  def get_object_by_snpid(self, rsnp):
-    try:
-      rsnp = 'rs' + str(rsnp)
-      #the line below will force this to work even if snpids are 
-      #not unique in the search space. 
-      #return ScoresRow.objects.filter(snpid=rsnp).first()
-      return ScoresRow.objects.get(snpid=rsnp)
-      #TODO: This data is not as unique as I expect
-    except ScoresRow.DoesNotExist:
-      return None
-
   def get(self, request, snp, format = None):
-    scores_row = self.get_object_by_snpid(snp)
-    if scores_row is None:
+    rsnp = 'rs' + str(snp)
+    scores_rows = ScoresRow.objects.filter(snpid=rsnp)
+
+    if len(scores_rows) == 0:
       return Response('No data for that SNPid',
                     status=status.HTTP_204_NO_CONTENT) 
-    serializer = ScoresRowSerializer(scores_row)
+    serializer = ScoresRowSerializer(scores_rows, many=True)
     return Response(serializer.data) 
 
 
