@@ -69,23 +69,31 @@ class OneScoresRowSnp(APIView):
     return Response(serializer.data) 
 
 
-
-@api_view(['GET', 'POST'])
+#require properly formatted URLs
+#@api_view(['GET', 'POST'])
+@api_view(['POST'])
 def scores_row_list(request):
   if request.method == 'POST': 
-    print "watch out!" 
     print str(request.data)  #expect this to be a list of quoted strings...
     scoresrows_to_return = []
     for one_snpid in request.data:
       print "one snp: " + one_snpid
       #the line below should REALLY be get. 
       #It looks like there's snp duplicates for some reason
-      one_scoresrow = ScoresRow.objects.filter(snpid=one_snpid)
-      print("Found " + str(len(one_scoresrow)) + " rows for " + one_snpid )
-      scoresrows_to_return.append(one_scoresrow.first()) 
+      one_scoresrow = None
+      try:
+        one_scoresrow = ScoresRow.objects.get(snpid=one_snpid)
+      except ScoresRow.DoesNotExist:
+        pass #just return the rows that match          
+
+      if one_scoresrow is not None:
+        scoresrows_to_return.append(one_scoresrow) 
+    if len(scoresrows_to_return) == 0:
+      return Response('No matches.', status=status.HTTP_204_NO_CONTENT)
     serializer = ScoresRowSerializer(scoresrows_to_return, many = True)
     return Response(serializer.data)
   else:
+    #I may eventually be able to remove this case.
     return Response('not the right response', status=status.HTTP_400_BAD_REQUEST)
 
 

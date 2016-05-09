@@ -74,6 +74,19 @@ class ScoresRowTests(APITestCase):
       self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
 
 
+    def test_nomatch_response_for_scores_row_list(self):
+      req_headers = { 'content-type' : 'application/json' }
+
+      #The following are not expected to match any snpids in the database
+      snpid_list = [ "rs111111111", "rs11111111111", "rs11111111111"]
+
+      url = reverse('api_v0:search')
+      response = self.client.post(url, snpid_list, format='json')
+      print("response: " + str(response) )
+      #self.compare_response(response.data,'test_scores_row_list_for_three_snpids')
+      self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+
     def test_scores_row_list_for_three_snpids(self):
       req_headers = { 'content-type' : 'application/json' }
       snpid_list = [ "rs376997626", "rs575624833", "rs189241347"]
