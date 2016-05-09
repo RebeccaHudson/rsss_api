@@ -96,7 +96,14 @@ class ScoresRowTests(APITestCase):
       self.assertEqual(response.status_code, status.HTTP_200_OK)
 
 
-
+    #return data for which there are matching records.
+    def test_partial_match_response_for_scores_row_list(self):
+      req_headers = { 'content-type' : 'application/json' }
+      snpid_list = [ "rs376997626", "rs575624833", "rs111111111",  "rs11111111111" ]
+      url = reverse('api_v0:search') 
+      response = self.client.post(url, snpid_list, format='json')
+      self.compare_response(response.data,'test_scores_row_list_partial_match')
+      self.assertEqual(response.status_code, status.HTTP_200_OK)
 
   #TODO: Add tests for unexpected and/or malformed requests.
 """
