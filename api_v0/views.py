@@ -52,7 +52,6 @@ class OneScoresRowSnp(APIView):
   def get(self, request, snp, format = None):
     rsnp = 'rs' + str(snp)
     scores_rows = ScoresRow.objects.filter(snpid=rsnp)
-
     if len(scores_rows) == 0:
       return Response('No data for that SNPid',
                     status=status.HTTP_204_NO_CONTENT) 

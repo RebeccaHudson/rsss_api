@@ -1,1 +1,1 @@
-{"id":2111,"snpid":"rs561784591","motif":"MA0002.2","motif_len":11,"log_lik_ref":-17.9759,"log_lik_snp":-19.1824,"log_lik_ratio":1.20646,"log_enhance_odds":-1.20646,"log_reduce_odds":1.20646,"ref_start":29,"snp_start":29,"ref_end":39,"snp_end":39,"ref_strand":"-","snp_strand":"-"}
+[{"id":2111,"snpid":"rs561784591","motif":"MA0002.2","motif_len":11,"log_lik_ref":-17.9759,"log_lik_snp":-19.1824,"log_lik_ratio":1.20646,"log_enhance_odds":-1.20646,"log_reduce_odds":1.20646,"ref_start":29,"snp_start":29,"ref_end":39,"snp_end":39,"ref_strand":"-","snp_strand":"-"}]

@@ -21,10 +21,6 @@ class ScoresRowTests(APITestCase):
         return 
       self.setup_table_in_testdb(c)
       self.read_sql_into_testdb(c)
-      with open(os.path.join(
-                 os.path.dirname(__file__), 'expected_test_outputs.json'),
-               'r') as data_file:
-         self.expected_output_data = json.load(data_file)
             
     def setup_table_in_testdb(self, cursor):
       sql = """CREATE TABLE snp_scores_1 (
@@ -53,6 +49,9 @@ class ScoresRowTests(APITestCase):
                                 name_of_expected_output_file + ".json"),
                  'r') as data_file:
           expected_output = json.load(data_file)
+          #response_data = json.loads(response_data)
+          #print("in compare response: expected output: " + str(type(expected_output)))
+          #print("in compare response: response data: " + str(type(response_data)))
           self.assertEqual(response_data, expected_output)
     
     def test_retrieve_one_row_by_id(self):
@@ -63,9 +62,11 @@ class ScoresRowTests(APITestCase):
     
     def test_retrieve_one_row_by_snpid(self):
       #the line below returns the snp: 'rs561784591'
+      print("getting one row by snpid!!!")
       url = reverse('api_v0:one-scores-snpid', args=(561784591,))
       response = self.client.get(url) 
-      self.compare_response(response.data, 'test_retrieve_row_by_snpid')
+      #an ordered dict comes out of the .filter call and the .data is an
+      self.compare_response(json.loads(response.content), 'test_retrieve_row_by_snpid')
       self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_nomatch_response_for_retrieve_one_row_by_snpid(self):
