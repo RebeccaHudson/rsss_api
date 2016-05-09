@@ -49,10 +49,7 @@ class ScoresRowTests(APITestCase):
                                 name_of_expected_output_file + ".json"),
                  'r') as data_file:
           expected_output = json.load(data_file)
-          #response_data = json.loads(response_data)
-          #print("in compare response: expected output: " + str(type(expected_output)))
-          #print("in compare response: response data: " + str(type(response_data)))
-          self.assertEqual(response_data, expected_output)
+      self.assertEqual(response_data, expected_output)
     
     def test_retrieve_one_row_by_id(self):
       url = reverse('api_v0:one-scores', args=(23,))
@@ -62,7 +59,6 @@ class ScoresRowTests(APITestCase):
     
     def test_retrieve_one_row_by_snpid(self):
       #the line below returns the snp: 'rs561784591'
-      print("getting one row by snpid!!!")
       url = reverse('api_v0:one-scores-snpid', args=(561784591,))
       response = self.client.get(url) 
       #an ordered dict comes out of the .filter call and the .data is an
