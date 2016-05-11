@@ -31,6 +31,7 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    'django_cassandra_engine',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -76,29 +77,42 @@ WSGI_APPLICATION = 'rsss_api.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/1.9/ref/settings/#databases
-
+#Here is the first one...
 #DATABASES = {
 #    'default': {
 #        'ENGINE': 'django.db.backends.sqlite3',
 #        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
 #    }
 #}
-
+#second one....
+#DATABASES = {
+#   'default': {
+#     'ENGINE' : 'django.db.backends.mysql',
+#     'NAME'   : 'motif_score_test_db',
+#     'USER'   : 'snp_test', 
+#     'PASSWORD' : 'tester',
+#     'HOST'     : 'fugu.biostat.wisc.edu',
+#     'PORT'     : '3306',
+#     'TEST'     : {  
+#        'NAME'   :  'subset_db_for_testing' ,
+#      }
+#   }
+#}
+#
 DATABASES = {
-   'default': {
-     'ENGINE' : 'django.db.backends.mysql',
-     'NAME'   : 'motif_score_test_db',
-     'USER'   : 'snp_test', 
-     'PASSWORD' : 'tester',
-     'HOST'     : 'fugu.biostat.wisc.edu',
-     'PORT'     : '3306',
-     'TEST'     : {  
-        'NAME'   :  'subset_db_for_testing' ,
-      }
-   }
-}
-
-
+        'default': {
+            'ENGINE': 'django_cassandra_engine',
+            'NAME': 'rsnp_data',
+            'TEST_NAME': 'rsnp_data_test_db',
+            'HOST': 'fugu.biostat.wisc.edu',
+            'OPTIONS': {
+                'replication': {
+                    'strategy_class': 'SimpleStrategy',
+                    'replication_factor': 1
+                }
+            }
+        }
+    }
 # Password validation
 # https://docs.djangoproject.com/en/1.9/ref/settings/#auth-password-validators
 
