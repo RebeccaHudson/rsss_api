@@ -6,9 +6,14 @@ from api_v0.models import ScoresRow
 class ScoresRowSerializer(serializers.ModelSerializer):
   class Meta:
     model = ScoresRow
-    fields = ('id', 'snpid', 'motif', 'motif_len', 'log_lik_ref', 'log_lik_snp', 'log_lik_ratio', 
-              'log_enhance_odds', 'log_reduce_odds', 'ref_start', 'snp_start', 'ref_end', 'snp_end',
-              'ref_strand', 'snp_strand')
+    fields = ('id', 'chromosome', 'pos', 
+              'snpid', 'motif', 'motif_len', 
+              'log_lik_ref', 'log_lik_snp', 'log_lik_ratio', 'log_enhance_odds', 'log_reduce_odds',
+              'ref_start', 'snp_start', 'ref_end', 'snp_end',
+              'ref_strand', 'snp_strand',
+              'pval_ref', 'pval_snp',
+              'pval_cond_ref', 'pval_cond_snp', 
+              'pval_diff', 'pval_rank',)
 
 
 

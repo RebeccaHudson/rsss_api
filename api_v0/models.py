@@ -19,10 +19,20 @@ class ScoresRow(models.Model):
   snp_end = models.IntegerField(default=0)
   ref_strand = models.CharField(max_length=1, default="")
   snp_strand = models.CharField(max_length=1, default="")
+
+  pval_ref = models.FloatField (default=0)
+  pval_snp = models.FloatField (default=0)
+  pval_cond_ref = models.FloatField (default=0)
+  pval_cond_snp = models.FloatField (default=0)
+  pval_diff = models.FloatField (default=0)
+  pval_rank = models.FloatField (default=0)
+
+  chromosome = models.CharField(max_length=10)
+  pos = models.IntegerField(default=0)
   #There should be some way to determine from the data in this model 
   #What transcription factors are involved for this row
   #eg: what's the threshold for each column to say that it's involved.
   class Meta:
     managed = False
-    db_table = 'snp_scores_1'
+    db_table = 'snp_scores_2'
 
