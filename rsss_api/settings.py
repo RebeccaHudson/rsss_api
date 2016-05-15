@@ -136,3 +136,13 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/1.9/howto/static-files/
 
 STATIC_URL = '/static/'
+
+HARD_LIMITS = {
+  'MAX_NUMBER_OF_SNPIDS_ALLOWED_TO_REQUEST': 300,
+  'MAX_BASES_IN_GL_REQUEST': 350 
+}
+
+
+
+
+
