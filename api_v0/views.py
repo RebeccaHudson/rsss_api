@@ -19,8 +19,12 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 #from rest_framework import mixins 
 from django.http import Http404
+from django.db import connection
+
 
 from rest_framework import status 
+
+SCORES_TABLE_NAME='snp_scores_2'
 
 #this works, leave it as an example...
 class ScoresRowList(APIView):
@@ -35,6 +39,7 @@ class ScoresRowList(APIView):
 
 #This is the only view that returns ONLY one row of data.
 class OneScoresRow(APIView):
+  #does not make sense with cassandra
   def get_object_by_id(self, pk):
     try:
       return ScoresRow.objects.get(pk = pk)
@@ -51,7 +56,10 @@ class OneScoresRow(APIView):
 class OneScoresRowSnp(APIView):
   def get(self, request, snp, format = None):
     rsnp = 'rs' + str(snp)
-    scores_rows = ScoresRow.objects.filter(snpid=rsnp)
+    #scores_rows = ScoresRow.objects.filter(snpid=rsnp)
+    cursor = connection.cursor()
+    scores_rows = cursor.execute('SELECT * from ' + SCORES_TABLE_NAME +' where snpid = ' + repr(rsnp) )
+    scores_rows = scores_rows.current_rows
     if len(scores_rows) == 0:
       return Response('No data for that SNPid',
                     status=status.HTTP_204_NO_CONTENT) 
