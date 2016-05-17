@@ -33,7 +33,7 @@ from cassandra.cqlengine.models import Model
 
 # Create your models here.
 class ScoresRow(models.Model):
-  snpid = columns.Text(index=True) 
+  snpid = columns.Text(primary_key=True, index=True) 
   motif = columns.Text() 
   motif_len = columns.Integer()
   log_lik_ref = columns.Float()  
@@ -53,11 +53,11 @@ class ScoresRow(models.Model):
   pval_cond_snp = columns.Float()
   pval_diff = columns.Float()
   pval_rank = columns.Float() 
-  chromosome = columns.Text()
-  pos = columns.Integer()
+  chromosome = columns.Text(primary_key=True)
+  pos = columns.Integer(primary_key=True)
   #There should be some way to determine from the data in this model 
   #What transcription factors are involved for this row
   #eg: what's the threshold for each column to say that it's involved.
   class Meta:
     managed = False
-    db_table = 'snp_scores_1'
+    db_table = 'snp_scores_2'
