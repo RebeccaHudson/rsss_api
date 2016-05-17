@@ -104,7 +104,7 @@ DATABASES = {
             'ENGINE': 'django_cassandra_engine',
             'NAME': 'rsnp_data',
             'TEST_NAME': 'rsnp_data_test_db',
-            'HOST': 'fugu.biostat.wisc.edu',
+            'HOST': 'fugu',
             'OPTIONS': {
                 'replication': {
                     'strategy_class': 'SimpleStrategy',
