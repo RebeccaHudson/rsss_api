@@ -19,8 +19,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 #from rest_framework import mixins 
 from django.http import Http404
-from django.db import connection
 
+from django.db import connection  #needed for manual queries with cassandra
+from django.conf import settings
 
 from rest_framework import status 
 
@@ -84,5 +85,33 @@ def scores_row_list(request):
   else:
     #I may eventually be able to remove this case.
     return Response('not the right response', status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['POST'])
+def search_by_genomic_location(request):
+  #Run some checks...
+  if not all (k in request.data.keys() for k in ("chromosome","start_pos", "end_pos")):
+    return Response('Must include chromosome, start, and end position.',
+                     status = status.HTTP_400_BAD_REQUEST)
+
+  start_pos = request.data['start_pos']
+  end_pos = request.data['end_pos']
+  chromosome = request.data['chromosome']  # TODO: check for invlaid chromosome
+
+  if end_pos < start_pos:
+    return Response('Start position is less than end position.',
+                    status = status.HTTP_400_BAD_REQUEST)
+
+  if end_pos - start_pos > settings.HARD_LIMITS['MAX_BASES_IN_GL_REQUEST']:
+    return Response('Requested region is too large', 
+                     status=status.HTTP_400_BAD_REQUEST)
+   
+  #refer to: https://docs.djangoproject.com/en/1.9/ref/models/querysets/#id4 
+  scoresrows = ScoresRow.objects.filter(chromosome=chromosome, 
+                                        pos__gte=start_pos, pos__lte=end_pos) 
+  if len(scoresrows) == 0:
+    return Response('No data in specified range.', status=status.HTTP_204_NO_CONTENT)
+  
+  serializer = ScoresRowSerializer(scoresrows, many = True)
+  return Response(serializer.data, status=status.HTTP_200_OK )
 
 
