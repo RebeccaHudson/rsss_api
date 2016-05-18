@@ -62,3 +62,21 @@ class RSSS_APITestCase(APITestCase):
                  'r') as data_file:
           expected_output = json.load(data_file)
       self.assertEqual(response_data, expected_output)
+ 
+ 
+    # Check that there are the correct number of fields, and the expected number
+    # of items in the response.
+    #  expects what comes out of json.loads(response.content)
+
+    # TODO: check that all of the expected fields have the expected names.
+    def check_that_response_is_well_formed(self, response_data, expected_count):
+      self.assertEqual(len(response_data), expected_count)
+      expected_attrs_in_datarow = 21  #how many fields to expect 
+      for one_item in response_data:      
+        self.assertEqual(len(one_item.keys()), expected_attrs_in_datarow)
+      print("Response: " + str(response_data) + " is well-formed.") 
+
+
+
+
+
