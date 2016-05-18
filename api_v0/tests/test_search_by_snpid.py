@@ -50,6 +50,17 @@ class SnpSearchTests(RSSS_APITestCase): #idea is that this will inheit from API 
       self.assertEqual(response.status_code, status.HTTP_200_OK)
 
 
+    def test_retrieve_one_row_by_snpid(self):
+      #the line below returns the snp: 'rs561784591'
+      url = reverse('api_v0:one-scores-snpid', args=(201336010,))
+      response = self.client.get(url)
+      #an ordered dict comes out of the .filter call and the .data is an
+      jr = json.loads(response.content)
+      self.assertEqual(len(jr), 1)
+      self.assertEqual(len(jr[0].keys()), 21)
+      print(jr)
+      #self.compare_response(json.loads(response.content), 'test_retrieve_row_by_snpid')
+      self.assertEqual(response.status_code, status.HTTP_200_OK)
 
 
 

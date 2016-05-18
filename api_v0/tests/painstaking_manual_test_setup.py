@@ -13,34 +13,33 @@ class RSSS_APITestCase(APITestCase):
     def setUp(self):
       connection.cursor().db.set_rollback(False)  
       c = connection.cursor()
-      c.execute('SHOW TABLES')
-      resp = c.fetchall() 
-      if (u'snp_scores_2',) in resp:
+      if u'snp_scores_2' in c.db.connection.cluster.metadata.keyspaces['test_rsnp_data'].tables.keys():
         print "snp_scores_2 test table already setup.. skipping that setup"
         return 
       self.setup_table_in_testdb(c)
-      self.read_sql_into_testdb(c)
-            
+      self.read_cql_into_testdb(c)
+
+
     def setup_table_in_testdb(self, cursor):
-      sql = """
-        CREATE TABLE snp_scores_2 (
-         id INTEGER PRIMARY KEY AUTO_INCREMENT,
-         snpid VARCHAR(20),  
-         motif VARCHAR(15),
-         motif_len INTEGER,
+      cql="""CREATE TABLE snp_scores_2 (
+         snpid VARCHAR,  
+         motif VARCHAR,
+         motif_len INT,
          log_lik_ref FLOAT, log_lik_snp FLOAT, log_lik_ratio FLOAT,
          log_enhance_odds FLOAT, log_reduce_odds FLOAT, 
-         ref_start INTEGER, snp_start INTEGER,
-         ref_end INTEGER, snp_end INTEGER,
-         ref_strand CHAR(1), snp_strand CHAR(1),
+         ref_start INT, snp_start INT,
+         ref_end INT, snp_end INT,
+         ref_strand VARCHAR, snp_strand VARCHAR,
          pval_ref FLOAT, pval_snp FLOAT, pval_cond_ref FLOAT, pval_cond_snp FLOAT,
-         pval_diff FLOAT, pval_rank FLOAT, chromosome VARCHAR(10), pos INTEGER);
-         """
-      cursor.execute(sql)
+         pval_diff FLOAT, pval_rank FLOAT, chr VARCHAR, pos INT,
+         PRIMARY KEY( (snpid), chr, pos, motif, pval_rank)
+         );"""
+      cursor.execute(cql)
 
-    def read_sql_into_testdb(self, cursor):
+
+    def read_cql_into_testdb(self, cursor):
         sql_input = os.path.join(os.path.dirname(os.path.dirname(__file__)), 
-                                'sql_test_data', 'sql_out_test_data-2.sql')
+                                'cql_test_data', 'cql_out_test_data-0.cql')
         with open(sql_input, 'r') as f:
           for line in f:
             cursor.execute(line)
