@@ -112,8 +112,15 @@ def search_by_genomic_location(request):
                      status=status.HTTP_400_BAD_REQUEST)
    
   #refer to: https://docs.djangoproject.com/en/1.9/ref/models/querysets/#id4 
-  scoresrows = ScoresRow.objects.filter(chromosome=chromosome, 
-                                        pos__gte=start_pos, pos__lte=end_pos) 
+  #scoresrows = ScoresRow.objects.filter(chromosome=chromosome, 
+  #                                      pos__gte=start_pos, pos__lte=end_pos) 
+  cql = 'SELECT * from ' + SCORES_TABLE_NAME               + \
+        ' where chr = ' + repr(chromosome.encode('ascii')) + \
+        ' and pos >= ' + str(start_pos)                    + \
+        ' and pos <= ' + str(end_pos) + ' ALLOW FILTERING'
+  cursor = connection.cursor()
+  scoresrows = cursor.execute(cql).current_rows  
+
   if len(scoresrows) == 0:
     return Response('No data in specified range.', status=status.HTTP_204_NO_CONTENT)
   
