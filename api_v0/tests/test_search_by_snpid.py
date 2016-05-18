@@ -23,7 +23,7 @@ class SnpSearchTests(RSSS_APITestCase): #idea is that this will inheit from API 
       self.assertEqual(response.data, 'No matches.')
       self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
 
-
+    # 2
     def test_scores_row_list_for_three_snpids(self):
       self.setUp()
       req_headers = { 'content-type' : 'application/json' }
@@ -33,7 +33,10 @@ class SnpSearchTests(RSSS_APITestCase): #idea is that this will inheit from API 
       response = self.client.post(url, snpid_list, format='json')
       #self.write_response_to_appropriate_testfile(json.loads(response.content),'test_scores_row_list_for_three_snpids')
       print("RESPONSE: "  + str(response))
-      self.compare_response(json.loads(response.content),'test_scores_row_list_for_three_snpids')
+      # is there a need to do json.loads?
+      response_json = json.loads(response.content)
+      self.check_that_response_is_well_formed(response_json, 3)
+      #self.compare_response(json.loads(response.content),'test_scores_row_list_for_three_snpids')
       self.assertEqual(response.status_code, status.HTTP_200_OK)
 
 
