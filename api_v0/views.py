@@ -74,8 +74,14 @@ def scores_row_list(request):
   if request.method == 'POST': 
     print str(request.data)  #expect this to be a list of quoted strings...
     scoresrows_to_return = []
+    cursor = connection.cursor()  # yep, manual SQL neded here too.
     for one_snpid in request.data:
-      scoresrows = ScoresRow.objects.filter(snpid=one_snpid)
+      #scoresrows = ScoresRow.objects.filter(snpid=one_snpid)
+      cql = 'SELECT * from ' + SCORES_TABLE_NAME + \
+            ' where snpid = ' + repr(one_snpid.encode('ascii')) 
+      #print("CQL: " + cql)
+      scoresrows = cursor.execute(cql).current_rows
+                                   
       for matching_row_of_data in scoresrows:
         scoresrows_to_return.append(matching_row_of_data)
     if len(scoresrows_to_return) == 0:
