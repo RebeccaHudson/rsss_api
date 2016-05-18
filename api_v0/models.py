@@ -27,7 +27,7 @@ class ScoresRow(models.Model):
   pval_cond_snp = columns.Float()
   pval_diff = columns.Float()
   pval_rank = columns.Float() 
-  chromosome = columns.Text(primary_key=True)
+  chr = columns.Text(primary_key=True)
   pos = columns.Integer(primary_key=True)
   class Meta:
     managed = False
