@@ -18,7 +18,7 @@ class SnpSearchTests(RSSS_APITestCase): #idea is that this will inheit from API 
       #The following are not expected to match any snpids in the database
       snpid_list = [ "rs111111111", "rs11111111111", "rs11111111111"]
 
-      url = reverse('api_v0:search')
+      url = reverse('api_v0:snpid-search')
       response = self.client.post(url, snpid_list, format='json')
       self.assertEqual(response.data, 'No matches.')
       self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
@@ -26,7 +26,7 @@ class SnpSearchTests(RSSS_APITestCase): #idea is that this will inheit from API 
     def test_search_by_snpid_for_three_snpids(self):
       req_headers = { 'content-type' : 'application/json' }
       snpid_list  = ["rs371194064",    "rs10218527",   "rs189107123" ]
-      url = reverse('api_v0:search')
+      url = reverse('api_v0:snpid-search')
       print("url " + url)
       response = self.client.post(url, snpid_list, format='json')
       #self.write_response_to_appropriate_testfile(json.loads(response.content),'test_scores_row_list_for_three_snpids')
@@ -42,7 +42,7 @@ class SnpSearchTests(RSSS_APITestCase): #idea is that this will inheit from API 
     def test_partial_match_response_for_search_by_snpid(self):
       req_headers = { 'content-type' : 'application/json' }
       snpid_list = ["rs10218527",   "rs189107123","rs111111111",  "rs11111111111" ]
-      url = reverse('api_v0:search') 
+      url = reverse('api_v0:snpid-search') 
       print("url " + url)
       response = self.client.post(url, snpid_list, format='json')
       response_json = json.loads(response.content)
