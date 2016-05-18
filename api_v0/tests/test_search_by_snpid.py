@@ -11,7 +11,7 @@ import os
 #From an actual form POST. 
 class SnpSearchTests(RSSS_APITestCase): #idea is that this will inheit from API TestCase   
 
-    def test_nomatch_response_for_scores_row_list(self):
+    def test_nomatch_response_for_search_by_snpid(self):
       print("testing nomatch response for scores row list")
       req_headers = { 'content-type' : 'application/json' }
 
@@ -23,7 +23,7 @@ class SnpSearchTests(RSSS_APITestCase): #idea is that this will inheit from API 
       self.assertEqual(response.data, 'No matches.')
       self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
 
-    def test_scores_row_list_for_three_snpids(self):
+    def test_search_by_snpid_for_three_snpids(self):
       req_headers = { 'content-type' : 'application/json' }
       snpid_list  = ["rs371194064",    "rs10218527",   "rs189107123" ]
       url = reverse('api_v0:search')
@@ -39,7 +39,7 @@ class SnpSearchTests(RSSS_APITestCase): #idea is that this will inheit from API 
 
 
     #return data for which there are matching records.
-    def test_partial_match_response_for_scores_row_list(self):
+    def test_partial_match_response_for_search_by_snpid(self):
       req_headers = { 'content-type' : 'application/json' }
       snpid_list = ["rs10218527",   "rs189107123","rs111111111",  "rs11111111111" ]
       url = reverse('api_v0:search') 
@@ -51,21 +51,6 @@ class SnpSearchTests(RSSS_APITestCase): #idea is that this will inheit from API 
       #self.write_response_to_appropriate_testfile(json.loads(response.content), 'test_scores_row_list_partial_match') 
       #self.compare_response(json.loads(response.content),'test_scores_row_list_partial_match')
       self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-
-    def test_retrieve_one_row_by_snpid(self):
-      #the line below returns the snp: 'rs561784591'
-      url = reverse('api_v0:one-scores-snpid', args=(201336010,))
-      response = self.client.get(url)
-      #an ordered dict comes out of the .filter call and the .data is an
-      jr = json.loads(response.content)
-      self.assertEqual(len(jr), 1)
-      self.assertEqual(len(jr[0].keys()), 21)
-      print(jr)
-      #self.compare_response(json.loads(response.content), 'test_retrieve_row_by_snpid')
-      self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-
 
 
 
