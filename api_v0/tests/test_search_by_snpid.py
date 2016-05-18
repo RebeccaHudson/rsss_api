@@ -23,9 +23,7 @@ class SnpSearchTests(RSSS_APITestCase): #idea is that this will inheit from API 
       self.assertEqual(response.data, 'No matches.')
       self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
 
-    # 2
     def test_scores_row_list_for_three_snpids(self):
-      self.setUp()
       req_headers = { 'content-type' : 'application/json' }
       snpid_list  = ["rs371194064",    "rs10218527",   "rs189107123" ]
       url = reverse('api_v0:search')
@@ -47,9 +45,11 @@ class SnpSearchTests(RSSS_APITestCase): #idea is that this will inheit from API 
       url = reverse('api_v0:search') 
       print("url " + url)
       response = self.client.post(url, snpid_list, format='json')
-      print("RESPONSE: "  + str(response))
+      response_json = json.loads(response.content)
+      #print("RESPONSE: "  + str(response_json))
+      self.check_that_response_is_well_formed(response_json, 2)
       #self.write_response_to_appropriate_testfile(json.loads(response.content), 'test_scores_row_list_partial_match') 
-      self.compare_response(json.loads(response.content),'test_scores_row_list_partial_match')
+      #self.compare_response(json.loads(response.content),'test_scores_row_list_partial_match')
       self.assertEqual(response.status_code, status.HTTP_200_OK)
 
 
