@@ -47,7 +47,7 @@ class RSSS_APITestCase(APITestCase):
     #writing up new test data after every migration is a real mother.
     #Check sufficiently what this writes out to avoid automating error propogation. 
     def write_response_to_appropriate_testfile(self, response_data, name_of_expected_output_file):
-      with open (os.path.join ( os.path.dirname(__file__),
+      with open (os.path.join ( os.path.dirname(os.path.dirname(__file__)),
                                  'test_outputs',
                                  name_of_expected_output_file  + '.json'),
                                  'w') as data_file:
