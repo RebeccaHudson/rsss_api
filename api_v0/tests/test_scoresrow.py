@@ -9,12 +9,13 @@ import os
 
 #Basic, miscellaneous tests for ScoresRow model itself.
 class ScoresRowTests(RSSS_APITestCase): 
-    def test_retrieve_one_row_by_id(self):
-      url = reverse('api_v0:one-scores', args=(23,))
-      response = self.client.get(url) 
-      self.compare_response(response.data, 'test_retrieve_one_row')
-      #self.write_response_to_appropriate_testfile(response.data, 'test_retrieve_one_row')
-      self.assertEqual(response.status_code, status.HTTP_200_OK)
+   # the cassandra data model does not use ID at all.
+   # def test_retrieve_one_row_by_id(self):
+   #   url = reverse('api_v0:one-scores', args=(23,))
+   #   response = self.client.get(url) 
+   #   self.compare_response(response.data, 'test_retrieve_one_row')
+   #   #self.write_response_to_appropriate_testfile(response.data, 'test_retrieve_one_row')
+   #   self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_retrieve_one_row_by_snpid(self):
       #the line below returns the snp: 'rs561784591'
