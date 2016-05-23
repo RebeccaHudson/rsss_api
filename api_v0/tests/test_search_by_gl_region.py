@@ -43,16 +43,16 @@ class GenomicLocationSearchTests(RSSS_APITestCase):
 
       # Requested region is too large; test data is a little hardcoded here.
       request_data = { 'chromosome' : 'ch1', 'start_pos' : 150, 
-                       'end_pos' : 500 + settings.HARD_LIMITS['MAX_BASES_IN_GL_REQUEST']  }
+                       'end_pos' : 500 + settings.HARD_LIMITS['MAX_BASES_IN_GL_REQUEST'],
+                       'pvalue_rank' : 0.05 }
       response = self.client.post(url, request_data, format = 'json')
       self.assertTrue('Requested region is too large' in response.data)
       self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
 
       # Chromosome is not specified; reject.
-      response = self.client.post(url,
-                                  {'start_pos' : 150, 'end_pos' : 239 }, 
-                                  format = 'json')
+      
+      response = self.client.post(url, {'start_pos' : 150, 'end_pos' : 239 }, format = 'json' )
       self.assertEqual(response.data, missing_arg_msg)
       self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
@@ -72,7 +72,9 @@ class GenomicLocationSearchTests(RSSS_APITestCase):
 
     def test_gl_search(self):
       url = reverse('api_v0:gl-search')
-      request_data = { 'chromosome' : 'ch1', 'start_pos' : 10257, 'end_pos' : 10357 }
+      request_data = { 'chromosome' : 'ch1', 
+                       'start_pos' : 10257,
+                       'end_pos' : 10357, 'pvalue_rank' : 0.05 }
       response = self.client.post(url, request_data, format='json')
       #self.write_response_to_appropriate_testfile(json.loads(response.content),'test_scores_row_list_for_three_snpids')
       print("RESPONSE: "  + str(response.data))
