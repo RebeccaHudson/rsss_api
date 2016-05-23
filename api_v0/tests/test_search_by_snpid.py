@@ -33,7 +33,11 @@ class SnpSearchTests(RSSS_APITestCase): #idea is that this will inheit from API 
       print("RESPONSE: "  + str(response))
       # is there a need to do json.loads?
       response_json = json.loads(response.content)
-      self.check_that_response_is_well_formed(response_json, 3)
+      
+      #  only 2 of the three snpids in the test data are below the 0.05
+      #  cutoff  
+      self.check_that_response_is_well_formed(response_json, 2)
+ 
       #self.compare_response(json.loads(response.content),'test_scores_row_list_for_three_snpids')
       self.assertEqual(response.status_code, status.HTTP_200_OK)
 
@@ -46,8 +50,9 @@ class SnpSearchTests(RSSS_APITestCase): #idea is that this will inheit from API 
       print("url " + url)
       response = self.client.post(url, snpid_list, format='json')
       response_json = json.loads(response.content)
-      #print("RESPONSE: "  + str(response_json))
-      self.check_that_response_is_well_formed(response_json, 2)
+      
+      #  only ONE match meets the default p-value cutoff of 0.05
+      self.check_that_response_is_well_formed(response_json, 1)
       #self.write_response_to_appropriate_testfile(json.loads(response.content), 'test_scores_row_list_partial_match') 
       #self.compare_response(json.loads(response.content),'test_scores_row_list_partial_match')
       self.assertEqual(response.status_code, status.HTTP_200_OK)
