@@ -157,6 +157,6 @@ HARD_LIMITS = {
 }
 
 
-
-
+CASSANDRA_TABLE_NAMES = { 'TABLE_FOR_SNPID_QUERY'     : 'snp_scores_3', 
+                          'TABLE_FOR_GL_REGION_QUERY' : 'snp_scores_4' }
 
