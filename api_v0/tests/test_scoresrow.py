@@ -24,7 +24,7 @@ class ScoresRowTests(RSSS_APITestCase):
       #an ordered dict comes out of the .filter call and the .data is an
       jr = json.loads(response.content)
       self.assertEqual(len(jr), 1)
-      self.assertEqual(len(jr[0].keys()), 21) 
+      self.check_that_response_is_well_formed(jr, 1 ) 
       print(jr)
       #self.compare_response(json.loads(response.content), 'test_retrieve_row_by_snpid')
       self.assertEqual(response.status_code, status.HTTP_200_OK)
