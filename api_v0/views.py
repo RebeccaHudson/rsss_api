@@ -67,6 +67,15 @@ class OneScoresRowSnp(APIView):
     return Response(serializer.data) 
 
 
+def get_p_value(request):
+  if request.data.has_key('pvalue_rank'):
+    # consider some validation here...
+    # if the user specifies a bad p-value, we
+    # should probably just use a default.
+    return request.data['pvalue_rank']
+  return settings.DEFAULT_P_VALUE
+
+
 #require properly formatted URLs
 @api_view(['POST'])
 def scores_row_list(request):
@@ -75,10 +84,10 @@ def scores_row_list(request):
     scoresrows_to_return = []
     cursor = connection.cursor()  # yep, manual SQL neded here too.
 
-    #pval_rank = request.data['pvalue_rank']  # this is what we'll call it when it comes in from the web.
-    pval_rank = 0.05
+    pval_rank = get_p_value(request) 
+    snpid_list = request.data['snpid_list']
 
-    for one_snpid in request.data:
+    for one_snpid in snpid_list:
       #scoresrows = ScoresRow.objects.filter(snpid=one_snpid)
       cql = 'SELECT * from ' +                                       \
             settings.CASSANDRA_TABLE_NAMES['TABLE_FOR_SNPID_QUERY']+ \
@@ -109,9 +118,7 @@ def search_by_genomic_location(request):
   start_pos = request.data['start_pos']
   end_pos = request.data['end_pos']
   chromosome = request.data['chromosome']  # TODO: check for invlaid chromosome
-  #pval_rank = request.data['pvalue_rank']  # this is what we'll call it when it comes in from the web.
-  pval_rank = 0.05
-
+  pval_rank = get_p_value(request)
 
   if end_pos < start_pos:
     return Response('Start position is less than end position.',
@@ -120,21 +127,8 @@ def search_by_genomic_location(request):
   if end_pos - start_pos > settings.HARD_LIMITS['MAX_BASES_IN_GL_REQUEST']:
     return Response('Requested region is too large', 
                      status=status.HTTP_400_BAD_REQUEST)
-   #refer to: https://docs.djangoproject.com/en/1.9/ref/models/querysets/#id4 
-   #scoresrows = ScoresRow.objects.filter(chromosome=chromosome, 
-   #                                      pos__gte=start_pos, pos__lte=end_pos) 
-   # cql='SELECT * from ' +                                   \
-   #     settings.CASSANDRA_TABLE_NAMES['TABLE_FOR_GL_REGION_QUERY'] + \
-   #     ' where chr = ' + repr(chromosome.encode('ascii')) + \
-   #     ' and pos >= ' + str(start_pos)                    + \
-   #     ' and pos <= ' + str(end_pos) + ' ALLOW FILTERING'
 
-   #not the right search...
-   #cql = 'select * from ' +                                             \
-   #       settings.CASSANDRA_TABLE_NAMES['TABLE_FOR_GL_REGION_QUERY'] + \
-   #       where snpid = 'rs757310325' and pval_rank < 0.05 allow filtering;
-
-   #'{:06.2f}'.format(3.141592653589793)
+   #'{:06.2f}'.format(3.141592653589793)  this would be a nice thing to do..
   cql = ' select * from '        +                                               \
         settings.CASSANDRA_TABLE_NAMES['TABLE_FOR_GL_REGION_QUERY']            + \
         ' where chr = ' + repr(chromosome.encode('ascii'))                     + \
