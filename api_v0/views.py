@@ -66,6 +66,10 @@ class OneScoresRowSnp(APIView):
     serializer = ScoresRowSerializer(scores_rows, many=True)
     return Response(serializer.data) 
 
+def order_rows_by_genomic_location(rows): 
+  return sorted(rows, key=lambda row: row['pos'])   # sort by age
+ 
+
 
 def get_p_value(request):
   if request.data.has_key('pvalue_rank'):
@@ -74,6 +78,7 @@ def get_p_value(request):
     # should probably just use a default.
     return request.data['pvalue_rank']
   return settings.DEFAULT_P_VALUE
+
 
 
 #require properly formatted URLs
@@ -93,20 +98,31 @@ def scores_row_list(request):
             settings.CASSANDRA_TABLE_NAMES['TABLE_FOR_SNPID_QUERY']+ \
             ' where snpid = ' + repr(one_snpid.encode('ascii'))    + \
             ' and pval_rank < ' + str(pval_rank) + ' ALLOW FILTERING;'
-      print("CQL: " + cql)
+      #print("CQL: " + cql)
       # example: :select snpid, chr, pos from snp_scores_3 where snpid = 'rs757310325' and pval_rank < 0.05 allow filtering;
      
       scoresrows = cursor.execute(cql).current_rows
                                    
       for matching_row_of_data in scoresrows:
         scoresrows_to_return.append(matching_row_of_data)
-    if len(scoresrows_to_return) == 0:
+    if scoresrows_to_return is None or len(scoresrows_to_return) == 0:
       return Response('No matches.', status=status.HTTP_204_NO_CONTENT)
+    #execution should not reach this point if no data will be returned.
+    scoresrows_to_return = order_rows_by_genomic_location(scoresrows_to_return)
     serializer = ScoresRowSerializer(scoresrows_to_return, many = True)
     return Response(serializer.data)
   else:
     #I may eventually be able to remove this case.
     return Response('not the right response', status=status.HTTP_400_BAD_REQUEST)
+
+# TODO: cassandra should be handling this right now.
+# filter by p-value:
+def filter_by_pvalue(data_in, pvalue):
+  to_return = [] 
+  for one_row in data_in:
+    if one_row['pval_rank'] <= pvalue:
+     to_return.append(one_row)
+  return to_return 
 
 @api_view(['POST'])
 def search_by_genomic_location(request):
@@ -132,18 +148,20 @@ def search_by_genomic_location(request):
   cql = ' select * from '        +                                               \
         settings.CASSANDRA_TABLE_NAMES['TABLE_FOR_GL_REGION_QUERY']            + \
         ' where chr = ' + repr(chromosome.encode('ascii'))                     + \
-        ' and (pos, pval_rank) > ('+ str(start_pos) + ',' + str(0)        +')' + \
-        ' and (pos, pval_rank) < ('+ str(end_pos)   + ',' + str(pval_rank)+')' + \
+        ' and (pos, pval_rank) >= ('+ str(start_pos) + ',' + str(0)        +')' + \
+        ' and (pos, pval_rank) <= ('+ str(end_pos)   + ',' + str(pval_rank)+')' + \
         ' ALLOW FILTERING;' 
           #consider adding a HARD LIMIT for general use.
           #does this actually work?
-
+  print(cql)
   cursor = connection.cursor()
   scoresrows = cursor.execute(cql).current_rows  
 
-  if len(scoresrows) == 0:
-    return Response('No data in specified range.', status=status.HTTP_204_NO_CONTENT)
-  
+  if scoresrows is None or len(scoresrows) == 0:
+    return Response('No matches.', status=status.HTTP_204_NO_CONTENT)
+  else:
+    scoresrows = filter_by_pvalue(scoresrows, pval_rank) 
+    scoresrows = order_rows_by_genomic_location(scoresrows)
   serializer = ScoresRowSerializer(scoresrows, many = True)
   return Response(serializer.data, status=status.HTTP_200_OK )
 
