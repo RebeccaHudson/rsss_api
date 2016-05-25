@@ -81,7 +81,14 @@ class GenomicLocationSearchTests(RSSS_APITestCase):
       #self.compare_response(json.loads(response.content),'test_scores_row_list_for_three_snpids')
       self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-
+    def test_gl_search_for_200_bases(self):
+      url = reverse('api_v0:gl-search')
+      request_data = { 'chromosome' : 'ch1', 
+                       'start_pos' : 13528,
+                       'end_pos' : 13528 + 200, 'pvalue_rank' : 1 }
+      response = self.client.post(url, request_data, format='json')
+      print("RESPONSE: "  + str(response.data))
+      self.assertEqual(response.status_code, status.HTTP_200_OK)
 
 
 
