@@ -23,7 +23,7 @@ class GenomicLocationSearchTests(RSSS_APITestCase):
                        'start_pos' : 999999999, 
                        'end_pos' : start_pos + 10 }
       response = self.client.post(reverse('api_v0:gl-search'), request_data , format='json')
-      self.assertEqual(response.data, 'No data in specified range.')
+      self.assertEqual(response.data, 'No matches.')
       self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
 
 
