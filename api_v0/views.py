@@ -168,23 +168,29 @@ def check_and_aggregate_gl_search_params(request):
 @api_view(['POST'])
 def search_by_genomic_location(request):
   #Run some checks...
+  gl_chunk_size = 100 
   gl_coords_or_error_response = check_and_aggregate_gl_search_params(request)
   if not gl_coords_or_error_response.__class__.__name__  == 'dict':
     return gl_coords_or_error_response 
 
   gl_coords = gl_coords_or_error_response  
   # this is now sure to be a dict with the search temrs in it.
-
+  int_range = list(range(gl_coords['start_pos'], gl_coords['end_pos']))
+  chunked_gl_segments = chunk(int_range, gl_chunk_size)
+   
+  for one_chunk in chunked_gl_segments:
    #'{:06.2f}'.format(3.141592653589793)  this would be a nice thing to do..
-  cql = ' select * from '        +                                               \
-        settings.CASSANDRA_TABLE_NAMES['TABLE_FOR_GL_REGION_QUERY']            + \
-        ' where chr = ' + repr(gl_coords['chromosome'].encode('ascii'))                     + \
-        ' and (pos, pval_rank) >= ('+ str(gl_coords['start_pos']) + ',' + str(0)        +')' + \
-        ' and (pos, pval_rank) <= ('+ str(gl_coords['end_pos'])   + ',' + str(gl_coords['pval_rank'])+')' + \
+    in_clause = setup_in_clause(one_chunk, stringify=True)
+    cql = ' select * from '                                                 + \
+        settings.CASSANDRA_TABLE_NAMES['TABLE_FOR_GL_REGION_QUERY']         + \
+        ' where chr = ' + repr(gl_coords['chromosome'].encode('ascii'))     + \
+        ' and pos in ' + in_clause                                          + \
+        ' and pval_rank <= ' + str(gl_coords['pval_rank'])                  + \
         ' ALLOW FILTERING;' 
-          #consider adding a HARD LIMIT for general use.
-          #does this actually work?
-  #print(cql)
+    print(cql)
+  # original version without using the IN clause..
+  #' and (pos, pval_rank) >= ('+ str(gl_coords['start_pos']) + ',' + str(0)        +')' + \
+  #' and (pos, pval_rank) <= ('+ str(gl_coords['end_pos'])   + ',' + str(gl_coords['pval_rank'])+')' + \
   cursor = connection.cursor()
   scoresrows = cursor.execute(cql).current_rows  
 
