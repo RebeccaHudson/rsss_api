@@ -69,6 +69,8 @@ class OneScoresRowSnp(APIView):
 def order_rows_by_genomic_location(rows): 
   return sorted(rows, key=lambda row: row['pos'])   # sort by age
  
+def chunk(input, size):
+  return map(None, *([iter(input)] * size))
 
 
 def get_p_value(request):
@@ -80,10 +82,23 @@ def get_p_value(request):
   return settings.DEFAULT_P_VALUE
 
 
+def setup_in_clause(list_chunk, stringify=False, quote=False):
+  if not stringify and not quote:
+    raise ValueError("Must specify to stringify or quote.")
+  items_to_query = []
+  if stringify:
+    items_to_query = [ str(x) for x in list_chunk if x is not None]
+  if quote:
+    items_to_query = [ repr(x.encode('ascii')) for x in list_chunk if x is not None]
+  in_clause = "(" + ", ".join(items_to_query)   + ")"  
+  return in_clause
+
 
 #require properly formatted URLs
 @api_view(['POST'])
 def scores_row_list(request):
+  snpids_in_one_in_clause = 4
+
   if request.method == 'POST': 
     print str(request.data)  #expect this to be a list of quoted strings...
     scoresrows_to_return = []
@@ -91,20 +106,24 @@ def scores_row_list(request):
 
     pval_rank = get_p_value(request) 
     snpid_list = request.data['snpid_list']
+    chunked_snpid_list = chunk(snpid_list, snpids_in_one_in_clause) 
 
-    for one_snpid in snpid_list:
+    for one_chunk  in chunked_snpid_list:
       #scoresrows = ScoresRow.objects.filter(snpid=one_snpid)
+      in_clause = setup_in_clause(one_chunk, quote=True)
+      
       cql = 'SELECT * from ' +                                       \
             settings.CASSANDRA_TABLE_NAMES['TABLE_FOR_SNPID_QUERY']+ \
-            ' where snpid = ' + repr(one_snpid.encode('ascii'))    + \
-            ' and pval_rank < ' + str(pval_rank) + ' ALLOW FILTERING;'
+            ' where snpid in ' + in_clause                         + \
+            ' and pval_rank <= ' + str(pval_rank) + ' ALLOW FILTERING;'
+      # existing where clause before using IN
+      # ' where snpid = ' + repr(one_snpid.encode('ascii'))    + \
+
       #print("CQL: " + cql)
-      # example: :select snpid, chr, pos from snp_scores_3 where snpid = 'rs757310325' and pval_rank < 0.05 allow filtering;
-     
       scoresrows = cursor.execute(cql).current_rows
-                                   
       for matching_row_of_data in scoresrows:
         scoresrows_to_return.append(matching_row_of_data)
+
     if scoresrows_to_return is None or len(scoresrows_to_return) == 0:
       return Response('No matches.', status=status.HTTP_204_NO_CONTENT)
     #execution should not reach this point if no data will be returned.
@@ -124,43 +143,55 @@ def filter_by_pvalue(data_in, pvalue):
      to_return.append(one_row)
   return to_return 
 
-@api_view(['POST'])
-def search_by_genomic_location(request):
-  #Run some checks...
+
+def check_and_aggregate_gl_search_params(request):
+  print("here's the keys in the request data"  + str(request.data.keys()) )
   if not all (k in request.data.keys() for k in ("chromosome","start_pos", "end_pos")):
     return Response('Must include chromosome, start, and end position.',
                      status = status.HTTP_400_BAD_REQUEST)
+  gl_coords =  {}
+  gl_coords['start_pos'] = request.data['start_pos']
+  gl_coords['end_pos'] = request.data['end_pos']
+  gl_coords['chromosome'] = request.data['chromosome']  # TODO: check for invlaid chromosome
+  gl_coords['pval_rank'] = get_p_value(request)
 
-  start_pos = request.data['start_pos']
-  end_pos = request.data['end_pos']
-  chromosome = request.data['chromosome']  # TODO: check for invlaid chromosome
-  pval_rank = get_p_value(request)
-
-  if end_pos < start_pos:
+  if gl_coords['end_pos'] < gl_coords['start_pos']:
     return Response('Start position is less than end position.',
                     status = status.HTTP_400_BAD_REQUEST)
  
-  if end_pos - start_pos > settings.HARD_LIMITS['MAX_BASES_IN_GL_REQUEST']:
+  if gl_coords['end_pos'] - gl_coords['start_pos'] > settings.HARD_LIMITS['MAX_BASES_IN_GL_REQUEST']:
     return Response('Requested region is too large', 
                      status=status.HTTP_400_BAD_REQUEST)
+  return gl_coords
+
+
+@api_view(['POST'])
+def search_by_genomic_location(request):
+  #Run some checks...
+  gl_coords_or_error_response = check_and_aggregate_gl_search_params(request)
+  if not gl_coords_or_error_response.__class__.__name__  == 'dict':
+    return gl_coords_or_error_response 
+
+  gl_coords = gl_coords_or_error_response  
+  # this is now sure to be a dict with the search temrs in it.
 
    #'{:06.2f}'.format(3.141592653589793)  this would be a nice thing to do..
   cql = ' select * from '        +                                               \
         settings.CASSANDRA_TABLE_NAMES['TABLE_FOR_GL_REGION_QUERY']            + \
-        ' where chr = ' + repr(chromosome.encode('ascii'))                     + \
-        ' and (pos, pval_rank) >= ('+ str(start_pos) + ',' + str(0)        +')' + \
-        ' and (pos, pval_rank) <= ('+ str(end_pos)   + ',' + str(pval_rank)+')' + \
+        ' where chr = ' + repr(gl_coords['chromosome'].encode('ascii'))                     + \
+        ' and (pos, pval_rank) >= ('+ str(gl_coords['start_pos']) + ',' + str(0)        +')' + \
+        ' and (pos, pval_rank) <= ('+ str(gl_coords['end_pos'])   + ',' + str(gl_coords['pval_rank'])+')' + \
         ' ALLOW FILTERING;' 
           #consider adding a HARD LIMIT for general use.
           #does this actually work?
-  print(cql)
+  #print(cql)
   cursor = connection.cursor()
   scoresrows = cursor.execute(cql).current_rows  
 
   if scoresrows is None or len(scoresrows) == 0:
     return Response('No matches.', status=status.HTTP_204_NO_CONTENT)
   else:
-    scoresrows = filter_by_pvalue(scoresrows, pval_rank) 
+    scoresrows = filter_by_pvalue(scoresrows, gl_coords['pval_rank']) 
     scoresrows = order_rows_by_genomic_location(scoresrows)
   serializer = ScoresRowSerializer(scoresrows, many = True)
   return Response(serializer.data, status=status.HTTP_200_OK )
