@@ -25,6 +25,7 @@ from django.conf import settings
 
 from rest_framework import status 
 
+import re
 
 #this works, leave it as an example...
 class ScoresRowList(APIView):
@@ -73,6 +74,7 @@ def chunk(input, size):
   return map(None, *([iter(input)] * size))
 
 
+# TODO: return an error if a p-value input is invalid.
 def get_p_value(request):
   if request.data.has_key('pvalue_rank'):
     # consider some validation here...
@@ -164,16 +166,29 @@ def check_and_aggregate_gl_search_params(request):
                      status=status.HTTP_400_BAD_REQUEST)
   return gl_coords
 
+def check_and_return_motif_value(request):
+    motif = request.data.get('motif')
+    if motif is None: 
+        return Response('No motif specified!', 
+                        status = status.HTTP_400_BAD_REQUEST)    
+    print('the motif: ' + motif)
+    test_match = re.match(r'M(\w+[.])+\w+', motif )
+    if test_match is None: 
+        return Response('No well-formed motifs.', 
+                      status = status.HTTP_400_BAD_REQUEST) 
+    return test_match.string.encode('ascii')
+
 
 @api_view(['POST'])
 def search_by_genomic_location(request):
-  #Run some checks...
-  gl_chunk_size = 100 
+  gl_chunk_size = 100   # TODO: parametrize chunk size in the settings file.
   gl_coords_or_error_response = check_and_aggregate_gl_search_params(request)
   if not gl_coords_or_error_response.__class__.__name__  == 'dict':
     return gl_coords_or_error_response 
 
-  gl_coords = gl_coords_or_error_response  
+  pvalue = get_p_value(request) #use a default if an invalid value is requested.
+
+  gl_coords = gl_coords_or_error_response
   # this is now sure to be a dict with the search temrs in it.
   int_range = list(range(gl_coords['start_pos'], gl_coords['end_pos']))
   chunked_gl_segments = chunk(int_range, gl_chunk_size)
@@ -196,10 +211,42 @@ def search_by_genomic_location(request):
 
   if scoresrows is None or len(scoresrows) == 0:
     return Response('No matches.', status=status.HTTP_204_NO_CONTENT)
-  else:
-    scoresrows = filter_by_pvalue(scoresrows, gl_coords['pval_rank']) 
-    scoresrows = order_rows_by_genomic_location(scoresrows)
+
+  #scoresrows = filter_by_pvalue(scoresrows, gl_coords['pval_rank']) 
+  scoresrows = order_rows_by_genomic_location(scoresrows)
   serializer = ScoresRowSerializer(scoresrows, many = True)
   return Response(serializer.data, status=status.HTTP_200_OK )
+
+
+#  Web interface translates motifs to transcription factors and vice-versa
+#  this API expects motif values. 
+@api_view(['POST'])
+def search_by_trans_factor(request):
+    motif_or_error_response = check_and_return_motif_value(request)
+    print('motif or error response is : ' + str(type(motif_or_error_response)))
+    if not motif_or_error_response.__class__.__name__ == 'str':
+      return motif_or_error_response   #it's an error response    
+    pvalue = get_p_value(request)
+    motif = motif_or_error_response # above established this is a motif. 
+    # This may need some actual paging going on for this...
+    cql = ' select * from '                                    +\
+          settings.CASSANDRA_TABLE_NAMES['TABLE_FOR_TF_QUERY'] +\
+          ' where motif = ' + repr(motif)                      +\
+          ' and pval_rank <= ' + pvalue                        +\
+          ' allow filtering;' 
+    print(cql)
+    cursor = connection.cursor()
+    scoresrows = cursor.execute(cql).current_rows
+
+    if scoresrows is None or len(scoresrows) == 0: 
+      return Response('No matches.', status=status.HTTP_204_NO_CONTENT)
+      
+    scoresrows = order_rows_by_genomic_location(scoresrows)
+    serializer = ScoresRowSerializer(scoresrows, many = True)
+    
+    return Response(serializer.data, status=status.HTTP_200_OK )
+
+
+
 
 
