@@ -60,7 +60,7 @@ class RSSS_APITestCase(APITestCase):
          ref_strand VARCHAR, snp_strand VARCHAR,
          pval_ref FLOAT, pval_snp FLOAT, pval_cond_ref FLOAT, pval_cond_snp FLOAT,
          pval_diff FLOAT, pval_rank FLOAT, chr VARCHAR, pos INT,
-         PRIMARY KEY( (snpid), pval_rank, chr, pos, motif)
+         PRIMARY KEY( (snpid), pval_rank, chr, pos)
          );"""
       cursor.execute(cql)
       self.read_cql_into_testdb(cursor, 'cql-data-3.txt')
