@@ -232,7 +232,7 @@ def search_by_trans_factor(request):
     cql = ' select * from '                                    +\
           settings.CASSANDRA_TABLE_NAMES['TABLE_FOR_TF_QUERY'] +\
           ' where motif = ' + repr(motif)                      +\
-          ' and pval_rank <= ' + pvalue                        +\
+          ' and pval_rank <= ' + str(pvalue)                   +\
           ' allow filtering;' 
     print(cql)
     cursor = connection.cursor()
