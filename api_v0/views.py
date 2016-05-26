@@ -166,17 +166,7 @@ def check_and_aggregate_gl_search_params(request):
                      status=status.HTTP_400_BAD_REQUEST)
   return gl_coords
 
-def check_and_return_motif_value(request):
-    motif = request.data.get('motif')
-    if motif is None: 
-        return Response('No motif specified!', 
-                        status = status.HTTP_400_BAD_REQUEST)    
-    print('the motif: ' + motif)
-    test_match = re.match(r'M(\w+[.])+\w+', motif )
-    if test_match is None: 
-        return Response('No well-formed motifs.', 
-                      status = status.HTTP_400_BAD_REQUEST) 
-    return test_match.string.encode('ascii')
+
 
 
 @api_view(['POST'])
@@ -208,7 +198,10 @@ def search_by_genomic_location(request):
   #' and (pos, pval_rank) <= ('+ str(gl_coords['end_pos'])   + ',' + str(gl_coords['pval_rank'])+')' + \
   cursor = connection.cursor()
   scoresrows = cursor.execute(cql).current_rows  
+  
+  #TODO: this might not be returning all of the data.
 
+  
   if scoresrows is None or len(scoresrows) == 0:
     return Response('No matches.', status=status.HTTP_204_NO_CONTENT)
 
@@ -218,34 +211,55 @@ def search_by_genomic_location(request):
   return Response(serializer.data, status=status.HTTP_200_OK )
 
 
+# this can be > 1, but is usually = 1.
+def check_and_return_motif_value(request):
+    one_or_more_motifs = request.data.get('motif')
+    print("type of motif param: " + str(type(one_or_more_motifs)))
+    print("one or more motifs: " + str(one_or_more_motifs))
+    if one_or_more_motifs is None: 
+        return Response('No motif specified!', 
+                        status = status.HTTP_400_BAD_REQUEST)    
+    for motif in one_or_more_motifs: 
+        test_match = re.match(r'M(\w+[.])+\w+', motif )
+        if test_match is None: 
+            return Response('No well-formed motifs.', 
+                          status = status.HTTP_400_BAD_REQUEST) 
+    return one_or_more_motifs 
+
 #  Web interface translates motifs to transcription factors and vice-versa
 #  this API expects motif values. 
 @api_view(['POST'])
 def search_by_trans_factor(request):
     motif_or_error_response = check_and_return_motif_value(request)
     print('motif or error response is : ' + str(type(motif_or_error_response)))
-    if not motif_or_error_response.__class__.__name__ == 'str':
-      return motif_or_error_response   #it's an error response    
-    pvalue = get_p_value(request)
-    motif = motif_or_error_response # above established this is a motif. 
-    # This may need some actual paging going on for this...
-    cql = ' select * from '                                    +\
-          settings.CASSANDRA_TABLE_NAMES['TABLE_FOR_TF_QUERY'] +\
-          ' where motif = ' + repr(motif)                      +\
-          ' and pval_rank <= ' + str(pvalue)                   +\
-          ' allow filtering;' 
-    print(cql)
-    cursor = connection.cursor()
-    scoresrows = cursor.execute(cql).current_rows
+    if not type(motif_or_error_response) == list:
+        return motif_or_error_response   #it's an error response    
 
-    if scoresrows is None or len(scoresrows) == 0: 
+    pvalue = get_p_value(request)
+    motif_list = motif_or_error_response # above established this is a motif. 
+    #motif_str = ", ".join([ repr(x.encode('ascii')) for x in motif])
+    #in_clause = " in (" + motif_str + ")"
+    # This may need some actual paging going on for this...
+    scoresrows_to_return = []
+
+    for one_motif in motif_list:
+        cql = ' select * from '                                    +\
+              settings.CASSANDRA_TABLE_NAMES['TABLE_FOR_TF_QUERY'] +\
+              ' where motif = ' + repr(one_motif.encode('ascii'))  +\
+              ' and pval_rank <= ' + str(pvalue)                   +\
+              ' allow filtering;' 
+        print(cql)
+        cursor = connection.cursor()
+        scoresrows = cursor.execute(cql).current_rows
+        scoresrows_to_return.extend(scoresrows)
+
+    if scoresrows_to_return is None or len(scoresrows_to_return) == 0: 
       return Response('No matches.', status=status.HTTP_204_NO_CONTENT)
       
-    scoresrows = order_rows_by_genomic_location(scoresrows)
-    serializer = ScoresRowSerializer(scoresrows, many = True)
+    scoresrows_to_return = order_rows_by_genomic_location(scoresrows_to_return)
+    serializer = ScoresRowSerializer(scoresrows_to_return, many = True)
     
     return Response(serializer.data, status=status.HTTP_200_OK )
-
 
 
 
