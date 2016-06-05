@@ -27,6 +27,8 @@ class RSSS_APITestCase(APITestCase):
     def setup_tables_for_testdb(self, cursor):
        self.setup_table_for_search_by_snpid_in_testdb(cursor)
        self.setup_table_for_search_by_gl_in_testdb(cursor)
+       #self.setup_table_for_plotting_data(cursor)
+
 
     # TODO: Deprecated?
     def setup_table_in_testdb(self, cursor):
@@ -84,6 +86,45 @@ class RSSS_APITestCase(APITestCase):
       cursor.execute(cql)
       self.read_cql_into_testdb(cursor, 'cql-data-4.txt')
 
+
+    def setup_table_for_plotting_data(self, cursor):
+        tbl = settings.CASSANDRA_TABLE_NAMES['TABLE_FOR_GL_REGION_QUERY'] 
+        cql= """ CREATE TABLE """ + tbl + """ (
+            snpid VARCHAR,
+            motif VARCHAR,
+            ref_seq VARCHAR,
+            snp_seq VARCHAR,
+            motif_len INT,
+            log_lik_ref FLOAT, log_lik_snp FLOAT, log_lik_ratio FLOAT,
+            log_enhance_odds FLOAT, log_reduce_odds FLOAT,
+            iupac VARCHAR,
+            ref_match_seq VARCHAR,
+            snp_match_seq VARCHAR,
+            ref_seq_snp_match VARCHAR,
+            snp_seq_ref_match VARCHAR,
+            snp_ref_start INT,
+            snp_ref_end INT,
+            snp_ref_length INT,
+            ref_aug_match_seq_forward  VARCHAR,
+            ref_aug_match_seq_reverse  VARCHAR,
+            snp_aug_match_seq_forward  VARCHAR,
+            snp_aug_match_seq_reverse  VARCHAR,
+            ref_location INT,
+            snp_location  INT,
+            ref_extra_pwm_left FLOAT,
+            ref_extra_pwm_right FLOAT,
+            snp_extra_pwm_left FLOAT,
+            snp_extra_pwm_right FLOAT,
+            ref_start  INT,
+            snp_start  INT,
+            ref_end   INT,
+            snp_end   INT,
+            ref_strand  VARCHAR,
+            snp_strand  VARCHAR,
+            PRIMARY KEY( (snpid), ref_strand, snp_strand )
+            );"""
+        cursor.execute(cql)
+        self.read_cql_into_testdb(cursor, 'cql-plotting-data-1.txt')
 
     def read_cql_into_testdb(self, cursor, name_of_testdata_file):
         sql_input = os.path.join(os.path.dirname(os.path.dirname(__file__)), 

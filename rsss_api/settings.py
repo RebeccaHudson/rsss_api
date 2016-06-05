@@ -99,12 +99,13 @@ WSGI_APPLICATION = 'rsss_api.wsgi.application'
 #   }
 #}
 #
+#['quasar-18','quasar-19', 'quasar-25']
 DATABASES = {
         'default': {
             'ENGINE': 'django_cassandra_engine',
             'NAME': 'rsnp_data',
             'TEST_NAME': 'rsnp_data_test_db',
-            'HOST': 'fugu',
+            'HOST':   'fugu',  
             'OPTIONS': {
                 'replication': {
                     'strategy_class': 'SimpleStrategy',
@@ -162,6 +163,8 @@ HARD_LIMITS = {
 
 CASSANDRA_TABLE_NAMES = { 'TABLE_FOR_SNPID_QUERY'     : 'snp_scores_3', 
                           'TABLE_FOR_GL_REGION_QUERY' : 'snp_scores_4',
-                          'TABLE_FOR_TF_QUERY'        : 'snp_scores_3' }
+                          'TABLE_FOR_TF_QUERY'        : 'snp_scores_3', 
+                          'TABLE_FOR_PLOTTING_DATA'   : 'plotting_data_1' }
+
 
 
