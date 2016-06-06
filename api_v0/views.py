@@ -4,6 +4,7 @@ from django.shortcuts import render
 
 from api_v0.models import ScoresRow 
 from api_v0.serializers import ScoresRowSerializer
+from api_v0.serializers import PlottingDataSerializer
 from rest_framework import generics
 from django.contrib.auth.models import User
 
@@ -260,6 +261,40 @@ def search_by_trans_factor(request):
     serializer = ScoresRowSerializer(scoresrows_to_return, many = True)
     
     return Response(serializer.data, status=status.HTTP_200_OK )
+
+
+@api_view(['POST'])
+def get_plotting_data_for_snpid(request):
+    #the plotting data will not have pvalues on it...
+    # TODO probably change this to include the motif in the lookup?
+    snpid_requested = request.data.get('snpid')
+    if snpid_requested is None:
+        return Response('No snpid specified.', 
+                          status = status.HTTP_400_BAD_REQUEST) 
+    snpid_requested = snpid_requested.encode('ascii')
+    cql = 'select * from '                                    +\
+    settings.CASSANDRA_TABLE_NAMES['TABLE_FOR_PLOTTING_DATA'] +\
+    ' where snpid = ' + repr(snpid_requested)+';'
+    cursor = connection.cursor()
+    plotting_data = cursor.execute(cql).current_rows   
+
+    if plotting_data is None or len(plotting_data) == 0:
+        return Response('No matches.', status=status.HTTP_204_NO_CONTENT)
+
+    serializer = PlottingDataSerializer(plotting_data, many=True)
+
+    return Response(serializer.data, status=status.HTTP_200_OK )
+
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -27,7 +27,7 @@ class RSSS_APITestCase(APITestCase):
     def setup_tables_for_testdb(self, cursor):
        self.setup_table_for_search_by_snpid_in_testdb(cursor)
        self.setup_table_for_search_by_gl_in_testdb(cursor)
-       #self.setup_table_for_plotting_data(cursor)
+       self.setup_table_for_plotting_data(cursor)
 
 
     # TODO: Deprecated?
@@ -88,7 +88,7 @@ class RSSS_APITestCase(APITestCase):
 
 
     def setup_table_for_plotting_data(self, cursor):
-        tbl = settings.CASSANDRA_TABLE_NAMES['TABLE_FOR_GL_REGION_QUERY'] 
+        tbl = settings.CASSANDRA_TABLE_NAMES['TABLE_FOR_PLOTTING_DATA'] 
         cql= """ CREATE TABLE """ + tbl + """ (
             snpid VARCHAR,
             motif VARCHAR,
@@ -121,8 +121,11 @@ class RSSS_APITestCase(APITestCase):
             snp_end   INT,
             ref_strand  VARCHAR,
             snp_strand  VARCHAR,
-            PRIMARY KEY( (snpid), ref_strand, snp_strand )
-            );"""
+            PRIMARY KEY( (snpid), ref_strand, snp_strand, snp_seq, ref_seq, ref_match_seq, 
+                                  snp_match_seq, ref_aug_match_seq_forward, 
+                                  ref_aug_match_seq_reverse, 
+                                  snp_aug_match_seq_forward, snp_aug_match_seq_reverse
+            ));"""
         cursor.execute(cql)
         self.read_cql_into_testdb(cursor, 'cql-plotting-data-1.txt')
 

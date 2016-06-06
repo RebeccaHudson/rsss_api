@@ -22,4 +22,5 @@ urlpatterns = format_suffix_patterns([
   url(r'one-scores-snpid/rs(?P<snp>[0-9]+)/$', views.OneScoresRowSnp.as_view(), name = 'one-scores-snpid'),
   url(r'search-by-gl/$', views.search_by_genomic_location, name='gl-search'),
   url(r'search-by-tf/$', views.search_by_trans_factor, name='tf-search'),
+  url(r'plotting-data/$', views.get_plotting_data_for_snpid, name='plotting-data'),
 ] )
