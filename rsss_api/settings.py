@@ -40,7 +40,6 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'api_v0.apps.ApiV0Config',
     'rest_framework',
-    'test_without_migrations',
 ]
 
 MIDDLEWARE_CLASSES = [
@@ -99,17 +98,26 @@ WSGI_APPLICATION = 'rsss_api.wsgi.application'
 #   }
 #}
 #
-#['quasar-18','quasar-19', 'quasar-25']
+from cassandra import ConsistencyLevel
 DATABASES = {
         'default': {
             'ENGINE': 'django_cassandra_engine',
             'NAME': 'rsnp_data',
             'TEST_NAME': 'rsnp_data_test_db',
-            'HOST':   'fugu',  
+            'HOST': 'quasar-18,quasar-19,quasar-25',
             'OPTIONS': {
                 'replication': {
                     'strategy_class': 'SimpleStrategy',
                     'replication_factor': 1
+                },
+                'session': {
+                    'default_timeout' : 40,
+                    'default_fetch_size': 10000
+                },
+                'connection': {
+                      'consistency': ConsistencyLevel.LOCAL_ONE,
+                      'retry_connect': True
+                      # + All connection options for cassandra.cluster.Cluster()
                 }
             }
         }
