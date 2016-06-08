@@ -8,13 +8,20 @@ from django.conf   import settings
 import json
 import os
 
+
+from cassandra import ConsistencyLevel
+from cassandra.query import SimpleStatement
+
 #All of this should be available to other tests...
 class RSSS_APITestCase(APITestCase):
 
     def setUp(self):
       connection.cursor().db.set_rollback(False)  
       c = connection.cursor()
+      # it could be possible to avoid re-creating all of the database stuff each time.
       tbl = settings.CASSANDRA_TABLE_NAMES['TABLE_FOR_SNPID_QUERY'] 
+      print("TABLES that exist in test keyspace: " +\
+      ", ".join(c.db.connection.cluster.metadata.keyspaces['test_rsnp_data'].tables.keys()))
       if tbl in c.db.connection.cluster.metadata.keyspaces['test_rsnp_data'].tables.keys():
         print "test tables already setup.. skipping that setup"
         return 
@@ -27,24 +34,6 @@ class RSSS_APITestCase(APITestCase):
     def setup_tables_for_testdb(self, cursor):
        self.setup_table_for_search_by_snpid_in_testdb(cursor)
        self.setup_table_for_search_by_gl_in_testdb(cursor)
-
-    # TODO: Deprecated?
-    def setup_table_in_testdb(self, cursor):
-      cql="""CREATE TABLE snp_scores_2 (
-         snpid VARCHAR,  
-         motif VARCHAR,
-         motif_len INT,
-         log_lik_ref FLOAT, log_lik_snp FLOAT, log_lik_ratio FLOAT,
-         log_enhance_odds FLOAT, log_reduce_odds FLOAT, 
-         ref_start INT, snp_start INT,
-         ref_end INT, snp_end INT,
-         ref_strand VARCHAR, snp_strand VARCHAR,
-         pval_ref FLOAT, pval_snp FLOAT, pval_cond_ref FLOAT, pval_cond_snp FLOAT,
-         pval_diff FLOAT, pval_rank FLOAT, chr VARCHAR, pos INT,
-         PRIMARY KEY( (snpid), chr, pos, motif, pval_rank)
-         );"""
-      cursor.execute(cql)
-
 
 
     def setup_table_for_search_by_snpid_in_testdb(self, cursor):
@@ -90,7 +79,8 @@ class RSSS_APITestCase(APITestCase):
                                 'cql_test_data', name_of_testdata_file)
         with open(sql_input, 'r') as f:
           for line in f:
-            cursor.execute(line)
+            query = SimpleStatement(line, consistency_level = ConsistencyLevel.ANY)
+            cursor.execute(query)
 
     #writing up new test data after every migration is a real mother.
     #Check sufficiently what this writes out to avoid automating error propogation. 
