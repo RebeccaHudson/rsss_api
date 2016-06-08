@@ -98,9 +98,7 @@ WSGI_APPLICATION = 'rsss_api.wsgi.application'
 #   }
 #}
 #
-<<<<<<< HEAD
 #['quasar-18','quasar-19', 'quasar-25']
-=======
 from cassandra import ConsistencyLevel
 DATABASES = {
         'default': {
