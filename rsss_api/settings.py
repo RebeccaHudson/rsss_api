@@ -111,8 +111,8 @@ DATABASES = {
                     'replication_factor': 1
                 },
                 'session': {
-                    'default_timeout' : 40,
-                    'default_fetch_size': 10000
+                    'default_timeout' : 50,
+                    'default_fetch_size': 1000
                 },
                 'connection': {
                       'consistency': ConsistencyLevel.LOCAL_ONE,
