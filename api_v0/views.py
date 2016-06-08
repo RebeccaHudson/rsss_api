@@ -27,6 +27,10 @@ from rest_framework import status
 
 import re
 
+
+from cassandra import ConsistencyLevel
+from cassandra.query import SimpleStatement
+
 #this works, leave it as an example...
 class ScoresRowList(APIView):
   """
@@ -174,38 +178,49 @@ def search_by_genomic_location(request):
   gl_chunk_size = 100   # TODO: parametrize chunk size in the settings file.
   gl_coords_or_error_response = check_and_aggregate_gl_search_params(request)
   if not gl_coords_or_error_response.__class__.__name__  == 'dict':
-    return gl_coords_or_error_response 
+      return gl_coords_or_error_response 
 
   pvalue = get_p_value(request) #use a default if an invalid value is requested.
 
   gl_coords = gl_coords_or_error_response
   # this is now sure to be a dict with the search temrs in it.
-  int_range = list(range(gl_coords['start_pos'], gl_coords['end_pos']))
-  chunked_gl_segments = chunk(int_range, gl_chunk_size)
-   
-  for one_chunk in chunked_gl_segments:
-   #'{:06.2f}'.format(3.141592653589793)  this would be a nice thing to do..
-    in_clause = setup_in_clause(one_chunk, stringify=True)
-    cql = ' select * from '                                                 + \
-        settings.CASSANDRA_TABLE_NAMES['TABLE_FOR_GL_REGION_QUERY']         + \
-        ' where chr = ' + repr(gl_coords['chromosome'].encode('ascii'))     + \
-        ' and pos in ' + in_clause                                          + \
-        ' and pval_rank <= ' + str(gl_coords['pval_rank'])                  + \
-        ' ALLOW FILTERING;' 
-    print(cql)
-  # original version without using the IN clause..
-  #' and (pos, pval_rank) >= ('+ str(gl_coords['start_pos']) + ',' + str(0)        +')' + \
-  #' and (pos, pval_rank) <= ('+ str(gl_coords['end_pos'])   + ',' + str(gl_coords['pval_rank'])+')' + \
+  #int_range = list(range(gl_coords['start_pos'], gl_coords['end_pos']))
+  #chunked_gl_segments = chunk(int_range, gl_chunk_size)
+  #scoresrows_to_return = []  
+
+  #for one_chunk in chunked_gl_segments:
+  #      in_clause = setup_in_clause(one_chunk, stringify=True)
+  #      cql = ' select * from '                                                 + \
+  #          settings.CASSANDRA_TABLE_NAMES['TABLE_FOR_GL_REGION_QUERY']         + \
+  #          ' where chr = ' + repr(gl_coords['chromosome'].encode('ascii'))     + \
+  #          ' and pos <='   + str(gl_coords['end_pos'])                         + \
+  #          ' and pos >= '      + str(gl_coords['start_pos'])                   + \
+  #          ' ALLOW FILTERING;' 
+  #      print(cql)
+  #      # original version without using the IN clause..
+  #      #' and (pos, pval_rank) >= ('+ str(gl_coords['start_pos']) + ',' + str(0)        +')' + \
+  #      #' and (pos, pval_rank) <= ('+ str(gl_coords['end_pos'])   + ',' + str(gl_coords['pval_rank'])+')' + \
+  #      cursor = connection.cursor()
+  #      query = SimpleStatement(cql, consistency_level=ConsistencyLevel.LOCAL_SERIAL)
+  #      #scoresrows = cursor.execute(cql).current_rows  
+  #      scoresrows = cursor.execute(query).current_rows  
+  #      scoresrows_to_return.extend(scoresrows) 
+  #  
+  #scoresrows = scoresrows_to_return
+  cql = ' select * from '                                                 + \
+      settings.CASSANDRA_TABLE_NAMES['TABLE_FOR_GL_REGION_QUERY']         + \
+      ' where chr = ' + repr(gl_coords['chromosome'].encode('ascii'))     + \
+      ' and pos <='   + str(gl_coords['end_pos'])                         + \
+      ' and pos >= '      + str(gl_coords['start_pos'])                   + \
+      ' ALLOW FILTERING;' 
   cursor = connection.cursor()
   scoresrows = cursor.execute(cql).current_rows  
-  
-  #TODO: this might not be returning all of the data.
 
-  
+  scoresrows = filter_by_pvalue(scoresrows, gl_coords['pval_rank']) 
   if scoresrows is None or len(scoresrows) == 0:
-    return Response('No matches.', status=status.HTTP_204_NO_CONTENT)
+      return Response('No matches.', status=status.HTTP_204_NO_CONTENT)
 
-  #scoresrows = filter_by_pvalue(scoresrows, gl_coords['pval_rank']) 
+
   scoresrows = order_rows_by_genomic_location(scoresrows)
   serializer = ScoresRowSerializer(scoresrows, many = True)
   return Response(serializer.data, status=status.HTTP_200_OK )
