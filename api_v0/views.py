@@ -172,6 +172,19 @@ def check_and_aggregate_gl_search_params(request):
 
 
 
+def process_search_by_genomic_location(gl_coords):
+  cql = ' select * from '                                                 + \
+      settings.CASSANDRA_TABLE_NAMES['TABLE_FOR_GL_REGION_QUERY']         + \
+      ' where chr = ' + repr(gl_coords['chr'].encode('ascii'))     + \
+      ' and pos <='   + str(gl_coords['end_pos'])                         + \
+      ' and pos >= '      + str(gl_coords['start_pos'])                   + \
+      ' ALLOW FILTERING;' 
+  cursor = connection.cursor()
+  scoresrows = cursor.execute(cql).current_rows  
+  return filter_by_pvalue(scoresrows, gl_coords['pval_rank']) 
+
+
+
 
 @api_view(['POST'])
 def search_by_genomic_location(request):
@@ -181,8 +194,8 @@ def search_by_genomic_location(request):
       return gl_coords_or_error_response 
 
   pvalue = get_p_value(request) #use a default if an invalid value is requested.
-
   gl_coords = gl_coords_or_error_response
+
   # this is now sure to be a dict with the search temrs in it.
   #int_range = list(range(gl_coords['start_pos'], gl_coords['end_pos']))
   #chunked_gl_segments = chunk(int_range, gl_chunk_size)
@@ -207,19 +220,11 @@ def search_by_genomic_location(request):
   #      scoresrows_to_return.extend(scoresrows) 
   #  
   #scoresrows = scoresrows_to_return
-  cql = ' select * from '                                                 + \
-      settings.CASSANDRA_TABLE_NAMES['TABLE_FOR_GL_REGION_QUERY']         + \
-      ' where chr = ' + repr(gl_coords['chromosome'].encode('ascii'))     + \
-      ' and pos <='   + str(gl_coords['end_pos'])                         + \
-      ' and pos >= '      + str(gl_coords['start_pos'])                   + \
-      ' ALLOW FILTERING;' 
-  cursor = connection.cursor()
-  scoresrows = cursor.execute(cql).current_rows  
 
-  scoresrows = filter_by_pvalue(scoresrows, gl_coords['pval_rank']) 
+  scoresrows = process_search_by_genomic_location(gl_coords) 
+  #factored out this logic to simplify coding other range-based searches.
   if scoresrows is None or len(scoresrows) == 0:
       return Response('No matches.', status=status.HTTP_204_NO_CONTENT)
-
 
   scoresrows = order_rows_by_genomic_location(scoresrows)
   serializer = ScoresRowSerializer(scoresrows, many = True)
@@ -268,13 +273,61 @@ def search_by_trans_factor(request):
         scoresrows = cursor.execute(cql).current_rows
         scoresrows_to_return.extend(scoresrows)
 
-    if scoresrows_to_return is None or len(scoresrows_to_return) == 0: 
+    if scoresrows_to_return is None or len(scoresrows_to_return) == 0:
       return Response('No matches.', status=status.HTTP_204_NO_CONTENT)
       
     scoresrows_to_return = order_rows_by_genomic_location(scoresrows_to_return)
     serializer = ScoresRowSerializer(scoresrows_to_return, many = True)
     
     return Response(serializer.data, status=status.HTTP_200_OK )
+
+def get_position_of_gene_by_name(gene_name):
+    cursor = connection.cursor()
+    location_of_gene = cursor.execute(cql).current_rows
+    return location_of_gene    #TODO: handle the case where a non-existing gene is specified.
+    #chromosome = location_of_gene['chr']
+    #start_pos = location_of_gene['start_pos']
+    #end_pos = locatoin_of_gene['end_pos']   
+     
+@api_view(['POST'])
+def search_by_gene_name(request):
+    gene_name = request.data.get('gene_name')
+    pvalue = get_p_value(request)
+    if gene_name is None:
+        return Response('No gene name specified.', 
+                        status = status.HTTP_400_BAD_REQUEST)
+    window_size = 0  #just select the feature
+    gl_parameters = get_position_of_gene_by_name(gene_name)
+    matches = process_search_by_genomic_location(gene_name) 
+    if matches is None or len(matches) == 0:
+        return Response('Nothing for that gene.', status = status.HTTP_204_NO_CONTENT)
+    serializer = ScoresRowSerializer(
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
