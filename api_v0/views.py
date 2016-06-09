@@ -220,8 +220,9 @@ def search_by_genomic_location(request):
   #      scoresrows_to_return.extend(scoresrows) 
   #  
   #scoresrows = scoresrows_to_return
-
+  gl_coords['chr'] = gl_coords['chromosome']
   scoresrows = process_search_by_genomic_location(gl_coords) 
+  
   #factored out this logic to simplify coding other range-based searches.
   if scoresrows is None or len(scoresrows) == 0:
       return Response('No matches.', status=status.HTTP_204_NO_CONTENT)
@@ -301,7 +302,7 @@ def search_by_gene_name(request):
     matches = process_search_by_genomic_location(gene_name) 
     if matches is None or len(matches) == 0:
         return Response('Nothing for that gene.', status = status.HTTP_204_NO_CONTENT)
-    serializer = ScoresRowSerializer(
+    #serializer = ScoresRowSerializer(
 
 
 
@@ -341,7 +342,6 @@ def get_plotting_data_for_snpid(request):
     cql = 'select * from '                                    +\
     settings.CASSANDRA_TABLE_NAMES['TABLE_FOR_PLOTTING_DATA'] +\
     ' where snpid = ' + repr(snpid_requested)+';'
->>>>>>> Stashed changes
     cursor = connection.cursor()
     location_of_gene = cursor.execute(cql).current_rows
     return location_of_gene    #TODO: handle the case where a non-existing gene is specified.
@@ -361,36 +361,5 @@ def search_by_gene_name(request):
     matches = process_search_by_genomic_location(gene_name) 
     if matches is None or len(matches) == 0:
         return Response('Nothing for that gene.', status = status.HTTP_204_NO_CONTENT)
-    serializer = ScoresRowSerializer(
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    #serializer = ScoresRowSerializer(
 
