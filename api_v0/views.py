@@ -393,3 +393,4 @@ def search_by_gene_name(request):
 
 
 
+
