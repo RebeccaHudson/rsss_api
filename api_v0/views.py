@@ -329,6 +329,67 @@ def search_by_gene_name(request):
 
 
 
+@api_view(['POST'])
+def get_plotting_data_for_snpid(request):
+    #the plotting data will not have pvalues on it...
+    # TODO probably change this to include the motif in the lookup?
+    snpid_requested = request.data.get('snpid')
+    if snpid_requested is None:
+        return Response('No snpid specified.', 
+                          status = status.HTTP_400_BAD_REQUEST) 
+    snpid_requested = snpid_requested.encode('ascii')
+    cql = 'select * from '                                    +\
+    settings.CASSANDRA_TABLE_NAMES['TABLE_FOR_PLOTTING_DATA'] +\
+    ' where snpid = ' + repr(snpid_requested)+';'
+>>>>>>> Stashed changes
+    cursor = connection.cursor()
+    location_of_gene = cursor.execute(cql).current_rows
+    return location_of_gene    #TODO: handle the case where a non-existing gene is specified.
+    #chromosome = location_of_gene['chr']
+    #start_pos = location_of_gene['start_pos']
+    #end_pos = locatoin_of_gene['end_pos']   
+     
+@api_view(['POST'])
+def search_by_gene_name(request):
+    gene_name = request.data.get('gene_name')
+    pvalue = get_p_value(request)
+    if gene_name is None:
+        return Response('No gene name specified.', 
+                        status = status.HTTP_400_BAD_REQUEST)
+    window_size = 0  #just select the feature
+    gl_parameters = get_position_of_gene_by_name(gene_name)
+    matches = process_search_by_genomic_location(gene_name) 
+    if matches is None or len(matches) == 0:
+        return Response('Nothing for that gene.', status = status.HTTP_204_NO_CONTENT)
+    serializer = ScoresRowSerializer(
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
