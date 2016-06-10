@@ -19,4 +19,6 @@ urlpatterns = format_suffix_patterns([
   url(r'snpid-search/$', views.scores_row_list, name='snpid-search'),
   url(r'search-by-gl/$', views.search_by_genomic_location, name='gl-search'),
   url(r'search-by-tf/$', views.search_by_trans_factor, name='tf-search'),
+  url(r'search-by-gene-name/$', views.search_by_gene_name, name='gene-name-search'),
+  url(r'plotting-data/$', views.get_plotting_data_for_snpid, name='plotting-data'),
 ] )
