@@ -127,8 +127,6 @@ def check_and_aggregate_gl_search_params(request):
                      status=status.HTTP_400_BAD_REQUEST)
   return gl_coords
 
-
-
 def prepare_json_for_gl_query(gl_coords, pval_rank):
     pvalue_filter = prepare_json_for_pvalue_filter(pval_rank)
     j_dict = {   "query":
@@ -189,6 +187,40 @@ def check_and_return_motif_value(request):
                           status = status.HTTP_400_BAD_REQUEST) 
     return one_or_more_motifs 
 
+
+def prepare_json_for_tf_query(motif_list, pval_rank):
+    pvalue_filter = prepare_json_for_pvalue_filter(pval_rank)
+    shoulds = []
+    for one_motif in motif_list:
+       shoulds.append({ "match" : { "motif" : one_motif } })
+    j_dict={
+        "query" : {
+            "bool" : {
+                "should" : shoulds,
+                "filter" : pvalue_filter["filter"]
+            } 
+        }
+    }                                                            #{
+    #    "query" : {
+    #        "bool" : {
+    #            "should" : [
+    #                { "match" : { "motif" : "MA0002.2" } },
+    #                { "match" : { "motif" : "MA0002.1" } }
+    #            ],          
+    #            "filter": {
+    #                "range" : { "pval_rank": { "lt" : 0.5 } }
+    #            }
+    #        }
+    #    }
+    #}
+    print "query for tf search : " + json.dumps(j_dict)
+    return json.dumps(j_dict)
+     
+
+
+
+
+
 #  Web interface translates motifs to transcription factors and vice-versa
 #  this API expects motif values. 
 @api_view(['POST'])
@@ -203,24 +235,15 @@ def search_by_trans_factor(request):
     #motif_str = ", ".join([ repr(x.encode('ascii')) for x in motif])
     #in_clause = " in (" + motif_str + ")"
     # This may need some actual paging going on for this...
-    scoresrows_to_return = []
+    es_query = prepare_json_for_tf_query(motif_list, pvalue)
+    url = settings.ELASTICSEARCH_URL + "/atsnp_data/" + "_search"
+    es_result = requests.post(url, data=es_query)
+    scoresrows = get_data_out_of_es_result(es_result)
 
-    for one_motif in motif_list:
-        cql = ' select * from '                                    +\
-              settings.CASSANDRA_TABLE_NAMES['TABLE_FOR_TF_QUERY'] +\
-              ' where motif = ' + repr(one_motif.encode('ascii'))  +\
-              ' and pval_rank <= ' + str(pvalue)                   +\
-              ' allow filtering;' 
-        print(cql)
-        cursor = connection.cursor()
-        scoresrows = cursor.execute(cql).current_rows
-        scoresrows_to_return.extend(scoresrows)
-
-    if scoresrows_to_return is None or len(scoresrows_to_return) == 0: 
+    if scoresrows is None or len(scoresrows) == 0: 
       return Response('No matches.', status=status.HTTP_204_NO_CONTENT)
       
-    scoresrows_to_return = order_rows_by_genomic_location(scoresrows_to_return)
-    serializer = ScoresRowSerializer(scoresrows_to_return, many = True)
+    serializer = ScoresRowSerializer(scoresrows, many = True)
     
     return Response(serializer.data, status=status.HTTP_200_OK )
 
