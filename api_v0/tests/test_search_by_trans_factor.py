@@ -16,15 +16,15 @@ class TranscriptionFactorSearchTests(APITestCase):
                                     format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         response_json = json.loads(response.content)
-        self.check_that_response_is_well_formed(response_json, 4)
-
+        print "length of valid response = " + str(len(response_json))
 
     def test_valid_nomatch_search_by_tf(self):
         url = reverse('api_v0:tf-search')
         response = self.client.post(url,
                                     {'motif':['MA0002.2'],
-                                     'pvalue_rank' : 0.00000001 },
+                                     'pvalue_rank' : -0.00000001 },
                                      format='json')
+        #ensure no matches by making the pvalue negative
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
 
 
