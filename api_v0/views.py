@@ -49,14 +49,6 @@ def get_data_out_of_es_result(es_result):
 
 #TODO: consider adding the additional p-values
 def prepare_json_for_pvalue_filter(pvalue_rank):
-   json_for_filter = """
-   "filter": {
-       "range" : {
-           "pval_rank": {
-               "lt: """ + str(pvalue_rank) + """
-           }
-       }
-   }""" 
    dict_for_filter = { "filter": {
        "range" : {
            "pval_rank": {
@@ -68,8 +60,7 @@ def prepare_json_for_pvalue_filter(pvalue_rank):
 
 
 def prepare_snpid_search_query_from_snpid_chunk(snpid_list, pvalue_rank):
-    #snp_list = ", ".join([ '"'+x+'"' for x in snpid_list ])
-    snp_list = snpid_list  #let json.dumps handle this for us... 
+    snp_list = snpid_list 
     filter_dict = prepare_json_for_pvalue_filter(pvalue_rank)
     query_dict = {
       "query": {
@@ -85,17 +76,15 @@ def prepare_snpid_search_query_from_snpid_chunk(snpid_list, pvalue_rank):
     return json.dumps(query_dict) 
 
 
-#used for searching by snpid.
 @api_view(['POST'])
 def scores_row_list(request):
-    print str(request.data)  #expect this to be a list of quoted strings...
+    #print str(request.data)  #expect this to be a list of quoted strings...
     scoresrows_to_return = []
 
     pval_rank = get_p_value(request) 
     snpid_list = request.data['snpid_list']
     chunked_snpid_list = chunk(snpid_list, 50) #TODO: parameterize chunk size somehow.
     url = settings.ELASTICSEARCH_URL + "/atsnp_data/" + "_search"
-    print "postig to url : " + url
    
     for one_chunk  in chunked_snpid_list:
       es_query = prepare_snpid_search_query_from_snpid_chunk(one_chunk, pval_rank)  
@@ -105,24 +94,21 @@ def scores_row_list(request):
     if scoresrows_to_return is None or len(scoresrows_to_return) == 0:
       return Response('No matches.', status=status.HTTP_204_NO_CONTENT)
     
-    # TODO: append the query to sort by genomic location.
-    #scoresrows_to_return = order_rows_by_genomic_location(scoresrows_to_return)
     serializer = ScoresRowSerializer(scoresrows_to_return, many = True)
     return Response(serializer.data)
 
 
-# TODO: cassandra should be handling this right now.
 # filter by p-value:
-def filter_by_pvalue(data_in, pvalue):
-  to_return = [] 
-  for one_row in data_in:
-    if one_row['pval_rank'] <= pvalue:
-     to_return.append(one_row)
-  return to_return 
+#def filter_by_pvalue(data_in, pvalue):
+#  to_return = [] 
+#  for one_row in data_in:
+#    if one_row['pval_rank'] <= pvalue:
+#     to_return.append(one_row)
+#  return to_return 
 
 
 def check_and_aggregate_gl_search_params(request):
-  print("here's the keys in the request data"  + str(request.data.keys()) )
+  #print("here's the keys in the request data"  + str(request.data.keys()) )
   if not all (k in request.data.keys() for k in ("chromosome","start_pos", "end_pos")):
     return Response('Must include chromosome, start, and end position.',
                      status = status.HTTP_400_BAD_REQUEST)
@@ -143,35 +129,49 @@ def check_and_aggregate_gl_search_params(request):
 
 
 
+def prepare_json_for_gl_query(gl_coords, pval_rank):
+    pvalue_filter = prepare_json_for_pvalue_filter(pval_rank)
+    j_dict = {   "query":
+        {
+            "bool" : {
+                "must" : [
+                   {
+                     "range": {
+                          "pos" : {  "from" : gl_coords['start_pos'], "to" : gl_coords['end_pos'] }
+                      }
+                   },
+                   { "term" : { "chr" : gl_coords['chromosome'] } }
+                ],
+                "filter":  pvalue_filter["filter"]
+            }
+        }
+    }
+    json_out = json.dumps(j_dict)
+    return json_out
+
 
 @api_view(['POST'])
 def search_by_genomic_location(request):
-  gl_chunk_size = 100   # TODO: parametrize chunk size in the settings file.
-  gl_coords_or_error_response = check_and_aggregate_gl_search_params(request)
-  if not gl_coords_or_error_response.__class__.__name__  == 'dict':
-      return gl_coords_or_error_response 
+    gl_chunk_size = 100   # TODO: parametrize chunk size in the settings file.
+    gl_coords_or_error_response = check_and_aggregate_gl_search_params(request)
 
-  pvalue = get_p_value(request) #use a default if an invalid value is requested.
+    if not gl_coords_or_error_response.__class__.__name__  == 'dict':
+        return gl_coords_or_error_response 
 
-  gl_coords = gl_coords_or_error_response
+    pvalue = get_p_value(request) #use a default if an invalid value is requested.
 
-  cql = ' select * from '                                                 + \
-      settings.CASSANDRA_TABLE_NAMES['TABLE_FOR_GL_REGION_QUERY']         + \
-      ' where chr = ' + repr(gl_coords['chromosome'].encode('ascii'))     + \
-      ' and pos <='   + str(gl_coords['end_pos'])                         + \
-      ' and pos >= '      + str(gl_coords['start_pos'])                   + \
-      ' ALLOW FILTERING;' 
-  cursor = connection.cursor()
-  scoresrows = cursor.execute(cql).current_rows  
+    gl_coords = gl_coords_or_error_response
+    es_query = prepare_json_for_gl_query(gl_coords, pvalue)
+   
+    url = settings.ELASTICSEARCH_URL + "/atsnp_data/" + "_search"
+    es_result = requests.post(url, data=es_query)
+    scoresrows = get_data_out_of_es_result(es_result)
 
-  scoresrows = filter_by_pvalue(scoresrows, gl_coords['pval_rank']) 
-  if scoresrows is None or len(scoresrows) == 0:
-      return Response('No matches.', status=status.HTTP_204_NO_CONTENT)
+    if scoresrows is None or len(scoresrows) == 0:
+        return Response('No matches.', status=status.HTTP_204_NO_CONTENT)
 
-
-  scoresrows = order_rows_by_genomic_location(scoresrows)
-  serializer = ScoresRowSerializer(scoresrows, many = True)
-  return Response(serializer.data, status=status.HTTP_200_OK )
+    serializer = ScoresRowSerializer(scoresrows, many = True)
+    return Response(serializer.data, status=status.HTTP_200_OK )
 
 
 # this can be > 1, but is usually = 1.
