@@ -1,144 +1,115 @@
 from django.shortcuts import render
-
-# Create your views here.
-
-from api_v0.models import ScoresRow 
 from api_v0.serializers import ScoresRowSerializer
 from rest_framework import generics
 from django.contrib.auth.models import User
-
-#from rest_framework.decorators import api_view
-#from rest_framework.response import Response
-#from rest_framework.reverse import reverse
-#from rest_framework import renderers 
 from rest_framework import viewsets
 from rest_framework.decorators import api_view 
 from rest_framework import serializers
 from rest_framework.response import Response
-
 from rest_framework.views import APIView
 #from rest_framework import mixins 
 from django.http import Http404
-
-from django.db import connection  #needed for manual queries with cassandra
 from django.conf import settings
-
 from rest_framework import status 
-
+import requests
 import re
+import json
 
-
-from cassandra import ConsistencyLevel
-from cassandra.query import SimpleStatement
-
-#this works, leave it as an example...
-class ScoresRowList(APIView):
-  """
-   this should ultimately take a list of snpIDs
-  """
-  def get(self, request, format=None):
-    scores_rows = ScoresRow.objects.all()[:3] #change this later...
-    serializer = ScoresRowSerializer(scores_rows, many=True)
-    return Response(serializer.data)
-
-
-#This is the only view that returns ONLY one row of data.
-class OneScoresRow(APIView):
-  #does not make sense with cassandra
-  def get_object_by_id(self, pk):
-    try:
-      return ScoresRow.objects.get(pk = pk)
-    except ScoresRow.DoesNotExist:
-      return Response('Nothing with that ID',
-                       status=status.HTTP_204_NO_CONTENT) 
-
-  def get(self, request, pk, format = None):
-    scores_row = self.get_object_by_id(pk)
-    serializer = ScoresRowSerializer(scores_row)
-    return Response(serializer.data) 
-
-#deprecated for production; p-value cutoff not added.
-class OneScoresRowSnp(APIView):
-  def get(self, request, snp, format = None):
-    rsnp = 'rs' + str(snp)
-    #scores_rows = ScoresRow.objects.filter(snpid=rsnp)
-    cursor = connection.cursor()
-    scores_rows = cursor.execute('SELECT * from '+settings.CASSANDRA_TABLE_NAMES['TABLE_FOR_SNPID_QUERY']+' where snpid = '+repr(rsnp) )
-    scores_rows = scores_rows.current_rows
-    if len(scores_rows) == 0:
-      return Response('No data for that SNPid',
-                    status=status.HTTP_204_NO_CONTENT) 
-    serializer = ScoresRowSerializer(scores_rows, many=True)
-    return Response(serializer.data) 
-
+#TODO: replace with ES functionality
 def order_rows_by_genomic_location(rows): 
   return sorted(rows, key=lambda row: row['pos'])   # sort by age
+
  
 def chunk(input, size):
-  return map(None, *([iter(input)] * size))
-
+  chunked =  map(None, *([iter(input)] * size))
+  chunks_back = []
+  print "chunked " + str(chunked)
+  for one_chunk in chunked:
+      if one_chunk is not None:
+          chunks_back.append([ x.encode("ascii") for x in one_chunk if x is not None])
+  print "chunks back  " + str(chunks_back)
+  return chunks_back
 
 # TODO: return an error if a p-value input is invalid.
 def get_p_value(request):
   if request.data.has_key('pvalue_rank'):
-    # consider some validation here...
-    # if the user specifies a bad p-value, we
-    # should probably just use a default.
     return request.data['pvalue_rank']
   return settings.DEFAULT_P_VALUE
 
 
-def setup_in_clause(list_chunk, stringify=False, quote=False):
-  if not stringify and not quote:
-    raise ValueError("Must specify to stringify or quote.")
-  items_to_query = []
-  if stringify:
-    items_to_query = [ str(x) for x in list_chunk if x is not None]
-  if quote:
-    items_to_query = [ repr(x.encode('ascii')) for x in list_chunk if x is not None]
-  in_clause = "(" + ", ".join(items_to_query)   + ")"  
-  return in_clause
+def get_data_out_of_es_result(es_result):
+    es_data = es_result.json()
+    print("es result : " + str(es_data))
+    print "es ruesult keys: "  + str(es_data.keys())
+    if 'hits' in es_data.keys():
+        return [ x['_source'] for x in es_data['hits']['hits'] ]
+    return [] 
 
 
-#require properly formatted URLs
+
+#TODO: consider adding the additional p-values
+def prepare_json_for_pvalue_filter(pvalue_rank):
+   json_for_filter = """
+   "filter": {
+       "range" : {
+           "pval_rank": {
+               "lt: """ + str(pvalue_rank) + """
+           }
+       }
+   }""" 
+   dict_for_filter = { "filter": {
+       "range" : {
+           "pval_rank": {
+               "lt":  str(pvalue_rank) 
+           }
+       }
+   }  }
+   return dict_for_filter 
+
+
+def prepare_snpid_search_query_from_snpid_chunk(snpid_list, pvalue_rank):
+    #snp_list = ", ".join([ '"'+x+'"' for x in snpid_list ])
+    snp_list = snpid_list  #let json.dumps handle this for us... 
+    filter_dict = prepare_json_for_pvalue_filter(pvalue_rank)
+    query_dict = {
+      "query": {
+        "bool": {
+          "must": {
+               "terms": { "snpid" : snp_list }
+          },
+          "filter" : filter_dict["filter"]
+        }
+      }
+    }
+    print("query " + json.dumps(query_dict) )
+    return json.dumps(query_dict) 
+
+
+#used for searching by snpid.
 @api_view(['POST'])
 def scores_row_list(request):
-  snpids_in_one_in_clause = 4
-
-  if request.method == 'POST': 
     print str(request.data)  #expect this to be a list of quoted strings...
     scoresrows_to_return = []
-    cursor = connection.cursor()  # yep, manual SQL neded here too.
 
     pval_rank = get_p_value(request) 
     snpid_list = request.data['snpid_list']
-    chunked_snpid_list = chunk(snpid_list, snpids_in_one_in_clause) 
-
+    chunked_snpid_list = chunk(snpid_list, 50) #TODO: parameterize chunk size somehow.
+    url = settings.ELASTICSEARCH_URL + "/atsnp_data/" + "_search"
+    print "postig to url : " + url
+   
     for one_chunk  in chunked_snpid_list:
-      #scoresrows = ScoresRow.objects.filter(snpid=one_snpid)
-      in_clause = setup_in_clause(one_chunk, quote=True)
-      
-      cql = 'SELECT * from ' +                                       \
-            settings.CASSANDRA_TABLE_NAMES['TABLE_FOR_SNPID_QUERY']+ \
-            ' where snpid in ' + in_clause                         + \
-            ' and pval_rank <= ' + str(pval_rank) + ' ALLOW FILTERING;'
-      # existing where clause before using IN
-      # ' where snpid = ' + repr(one_snpid.encode('ascii'))    + \
-
-      #print("CQL: " + cql)
-      scoresrows = cursor.execute(cql).current_rows
-      for matching_row_of_data in scoresrows:
-        scoresrows_to_return.append(matching_row_of_data)
+      es_query = prepare_snpid_search_query_from_snpid_chunk(one_chunk, pval_rank)  
+      es_result = requests.post(url, data=es_query)
+      scoresrows_to_return.extend(get_data_out_of_es_result(es_result))
 
     if scoresrows_to_return is None or len(scoresrows_to_return) == 0:
       return Response('No matches.', status=status.HTTP_204_NO_CONTENT)
-    #execution should not reach this point if no data will be returned.
-    scoresrows_to_return = order_rows_by_genomic_location(scoresrows_to_return)
+    
+    # TODO: append the query to sort by genomic location.
+    #scoresrows_to_return = order_rows_by_genomic_location(scoresrows_to_return)
     serializer = ScoresRowSerializer(scoresrows_to_return, many = True)
     return Response(serializer.data)
-  else:
-    #I may eventually be able to remove this case.
-    return Response('not the right response', status=status.HTTP_400_BAD_REQUEST)
+
 
 # TODO: cassandra should be handling this right now.
 # filter by p-value:
@@ -183,30 +154,7 @@ def search_by_genomic_location(request):
   pvalue = get_p_value(request) #use a default if an invalid value is requested.
 
   gl_coords = gl_coords_or_error_response
-  # this is now sure to be a dict with the search temrs in it.
-  #int_range = list(range(gl_coords['start_pos'], gl_coords['end_pos']))
-  #chunked_gl_segments = chunk(int_range, gl_chunk_size)
-  #scoresrows_to_return = []  
 
-  #for one_chunk in chunked_gl_segments:
-  #      in_clause = setup_in_clause(one_chunk, stringify=True)
-  #      cql = ' select * from '                                                 + \
-  #          settings.CASSANDRA_TABLE_NAMES['TABLE_FOR_GL_REGION_QUERY']         + \
-  #          ' where chr = ' + repr(gl_coords['chromosome'].encode('ascii'))     + \
-  #          ' and pos <='   + str(gl_coords['end_pos'])                         + \
-  #          ' and pos >= '      + str(gl_coords['start_pos'])                   + \
-  #          ' ALLOW FILTERING;' 
-  #      print(cql)
-  #      # original version without using the IN clause..
-  #      #' and (pos, pval_rank) >= ('+ str(gl_coords['start_pos']) + ',' + str(0)        +')' + \
-  #      #' and (pos, pval_rank) <= ('+ str(gl_coords['end_pos'])   + ',' + str(gl_coords['pval_rank'])+')' + \
-  #      cursor = connection.cursor()
-  #      query = SimpleStatement(cql, consistency_level=ConsistencyLevel.LOCAL_SERIAL)
-  #      #scoresrows = cursor.execute(cql).current_rows  
-  #      scoresrows = cursor.execute(query).current_rows  
-  #      scoresrows_to_return.extend(scoresrows) 
-  #  
-  #scoresrows = scoresrows_to_return
   cql = ' select * from '                                                 + \
       settings.CASSANDRA_TABLE_NAMES['TABLE_FOR_GL_REGION_QUERY']         + \
       ' where chr = ' + repr(gl_coords['chromosome'].encode('ascii'))     + \
