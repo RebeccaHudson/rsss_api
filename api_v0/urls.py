@@ -16,10 +16,7 @@ app_name = 'api_v0'
 
 #router auto-urls as well as a hardcoded pattern...
 urlpatterns = format_suffix_patterns([
-  url(r'scores/$', views.ScoresRowList.as_view(), name='dummy-scores'),
   url(r'snpid-search/$', views.scores_row_list, name='snpid-search'),
-  url(r'one-scores/(?P<pk>[0-9]+)/$', views.OneScoresRow.as_view(), name='one-scores'),
-  url(r'one-scores-snpid/rs(?P<snp>[0-9]+)/$', views.OneScoresRowSnp.as_view(), name = 'one-scores-snpid'),
   url(r'search-by-gl/$', views.search_by_genomic_location, name='gl-search'),
   url(r'search-by-tf/$', views.search_by_trans_factor, name='tf-search'),
 ] )
