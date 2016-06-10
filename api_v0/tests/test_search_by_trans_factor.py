@@ -1,10 +1,10 @@
 from django.core.urlresolvers import reverse
-from api_v0.tests.painstaking_manual_test_setup import RSSS_APITestCase
+from rest_framework.test import APITestCase
 from rest_framework import status
 import json
 import re
 
-class TranscriptionFactorSearchTests(RSSS_APITestCase):
+class TranscriptionFactorSearchTests(APITestCase):
     # currently, web interface is required to handle translation between
     # motif value and names of transcription factors.
     def test_simple_valid_search_by_tf(self):
