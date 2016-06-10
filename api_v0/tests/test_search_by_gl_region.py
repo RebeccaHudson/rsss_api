@@ -1,8 +1,6 @@
 from django.core.urlresolvers import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
-from api_v0.models import ScoresRow 
-from api_v0.tests.painstaking_manual_test_setup import RSSS_APITestCase
 from django.db import connection
 from django.conf import settings
 import json
@@ -10,7 +8,7 @@ import os
 
 #This is supposed to test all of the cases for API requests to search by genomic location. 
 #From an actual form POST. 
-class GenomicLocationSearchTests(RSSS_APITestCase):
+class GenomicLocationSearchTests(APITestCase):
 
     def test_nomatch_response_for_gl_search(self):
       print("testing nomatch response for genomic location search")
