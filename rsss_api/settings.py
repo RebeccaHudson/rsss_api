@@ -77,12 +77,12 @@ WSGI_APPLICATION = 'rsss_api.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/1.9/ref/settings/#databases
 #Here is the first one...
-#DATABASES = {
-#    'default': {
-#        'ENGINE': 'django.db.backends.sqlite3',
-#        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
-#    }
-#}
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+    }
+}
 #second one....
 #DATABASES = {
 #   'default': {
@@ -98,32 +98,34 @@ WSGI_APPLICATION = 'rsss_api.wsgi.application'
 #   }
 #}
 #
-from cassandra import ConsistencyLevel
-DATABASES = {
-        'default': {
-            'ENGINE': 'django_cassandra_engine',
-            'NAME': 'rsnp_data',
-            'TEST_NAME': 'rsnp_data_test_db',
-            'HOST': 'quasar-18,quasar-19,quasar-25',
-            'OPTIONS': {
-                'replication': {
-                    'strategy_class': 'SimpleStrategy',
-                    'replication_factor': 1
-                },
-                'session': {
-                    'default_timeout' : 50,
-                    'default_fetch_size': 1000
-                },
-                'connection': {
-                      'consistency': ConsistencyLevel.LOCAL_ONE,
-                      'retry_connect': True
-                      # + All connection options for cassandra.cluster.Cluster()
-                }
-            }
-        }
-    }
+#DATABASES = {
+#        'default': {
+#            'ENGINE': 'django_cassandra_engine',
+#            'NAME': 'rsnp_data',
+#            'TEST_NAME': 'rsnp_data_test_db',
+#            'HOST': 'quasar-18,quasar-19,quasar-25',
+#            'OPTIONS': {
+#                'replication': {
+#                    'strategy_class': 'SimpleStrategy',
+#                    'replication_factor': 1
+#                },
+#                'session': {
+#                    'default_timeout' : 50,
+#                    'default_fetch_size': 1000
+#                },
+#                'connection': {
+#                      'consistency': ConsistencyLevel.LOCAL_ONE,
+#                      'retry_connect': True
+#                      # + All connection options for cassandra.cluster.Cluster()
+#                }
+#            }
+#        }
+#    }
 # Password validation
 # https://docs.djangoproject.com/en/1.9/ref/settings/#auth-password-validators
+
+ELASTICSEARCH_URL='http://quasar-19:9200'
+
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -167,10 +169,4 @@ HARD_LIMITS = {
   'MAX_NUMBER_OF_SNPIDS_ALLOWED_TO_REQUEST': 500,
   'MAX_BASES_IN_GL_REQUEST': 500 
 }
-
-
-CASSANDRA_TABLE_NAMES = { 'TABLE_FOR_SNPID_QUERY'     : 'snp_scores_3', 
-                          'TABLE_FOR_GL_REGION_QUERY' : 'snp_scores_4',
-                          'TABLE_FOR_TF_QUERY'        : 'snp_scores_3' }
-
 
