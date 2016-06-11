@@ -160,10 +160,8 @@ def process_search_by_genomic_location(gl_coords):
 
 
 
-
 @api_view(['POST'])
 def search_by_genomic_location(request):
-<<<<<<< HEAD
     gl_chunk_size = 100   # TODO: parametrize chunk size in the settings file.
     gl_coords_or_error_response = check_and_aggregate_gl_search_params(request)
 
