@@ -98,8 +98,6 @@ WSGI_APPLICATION = 'rsss_api.wsgi.application'
 #   }
 #}
 #
-#['quasar-18','quasar-19', 'quasar-25']
-from cassandra import ConsistencyLevel
 DATABASES = {
         'default': {
             'ENGINE': 'django_cassandra_engine',
