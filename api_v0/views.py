@@ -98,15 +98,6 @@ def scores_row_list(request):
     return Response(serializer.data)
 
 
-# filter by p-value:
-#def filter_by_pvalue(data_in, pvalue):
-#  to_return = [] 
-#  for one_row in data_in:
-#    if one_row['pval_rank'] <= pvalue:
-#     to_return.append(one_row)
-#  return to_return 
-
-
 def check_and_aggregate_gl_search_params(request):
   #print("here's the keys in the request data"  + str(request.data.keys()) )
   if not all (k in request.data.keys() for k in ("chromosome","start_pos", "end_pos")):
@@ -147,23 +138,10 @@ def prepare_json_for_gl_query(gl_coords, pval_rank):
     json_out = json.dumps(j_dict)
     return json_out
 
-def process_search_by_genomic_location(gl_coords):
-  cql = ' select * from '                                                 + \
-      settings.CASSANDRA_TABLE_NAMES['TABLE_FOR_GL_REGION_QUERY']         + \
-      ' where chr = ' + repr(gl_coords['chr'].encode('ascii'))     + \
-      ' and pos <='   + str(gl_coords['end_pos'])                         + \
-      ' and pos >= '      + str(gl_coords['start_pos'])                   + \
-      ' ALLOW FILTERING;' 
-  cursor = connection.cursor()
-  scoresrows = cursor.execute(cql).current_rows  
-  return filter_by_pvalue(scoresrows, gl_coords['pval_rank']) 
-
-
 
 
 @api_view(['POST'])
 def search_by_genomic_location(request):
-<<<<<<< HEAD
     gl_chunk_size = 100   # TODO: parametrize chunk size in the settings file.
     gl_coords_or_error_response = check_and_aggregate_gl_search_params(request)
 
@@ -248,12 +226,19 @@ def search_by_trans_factor(request):
 
 
 def get_position_of_gene_by_name(gene_name):
-    cursor = connection.cursor()
-    location_of_gene = cursor.execute(cql).current_rows
-    return location_of_gene    #TODO: handle the case where a non-existing gene is specified.
-    #chromosome = location_of_gene['chr']
-    #start_pos = location_of_gene['start_pos']
-    #end_pos = locatoin_of_gene['end_pos']   
+    j_dict = { "query" : {
+                   "match" : {
+                       "gene_name" : gene_name    
+                   }
+                }
+             } 
+    url = settings.ELASTICSEARCH_URL + "/atsnp_data/gene_names" + "_search"
+    json_query = json.dumps(j_dict)
+    es_result = requests.post(url, data=json_query)   #returns empty list if no matches.
+    gene_coords = get_data_out_of_es_result(es_result)
+    if len(gene_coords) == 0: 
+       return None
+    return gene_coords[0]
      
 @api_view(['POST'])
 def search_by_gene_name(request):
@@ -262,10 +247,25 @@ def search_by_gene_name(request):
     if gene_name is None:
         return Response('No gene name specified.', 
                         status = status.HTTP_400_BAD_REQUEST)
-    window_size = 0  #just select the feature
-    gl_parameters = get_position_of_gene_by_name(gene_name)
-    matches = process_search_by_genomic_location(gene_name) 
-    if matches is None or len(matches) == 0:
+    window_size = 0  #just select the feature, add window size though.
+    gl_coords = get_position_of_gene_by_name(gene_name)
+    if gl_coords is None: 
+        return Response('Gene name not found in database.', 
+                        status = status.HTTP_400_BAD_REQUEST)
+    gl_coords['chromosome'] = gl_coords['chr']
+    es_query = prepare_json_for_gl_query(gl_coords, pvalue)
+   
+    url = settings.ELASTICSEARCH_URL + "/atsnp_data/atsnp_output/" + "_search"
+    es_result = requests.post(url, data=es_query)
+    scoresrows = get_data_out_of_es_result(es_result)
+
+    if scoresrows is None or len(scoresrows) == 0:
+        return Response('No matches.', status=status.HTTP_204_NO_CONTENT)
+
+    serializer = ScoresRowSerializer(scoresrows, many = True)
+    return Response(serializer.data, status=status.HTTP_200_OK )
+
+    if scoresrows is None or len(scoresrows) == 0:
         return Response('Nothing for that gene.', status = status.HTTP_204_NO_CONTENT)
     #serializer = ScoresRowSerializer(
 
@@ -314,17 +314,3 @@ def get_plotting_data_for_snpid(request):
     #start_pos = location_of_gene['start_pos']
     #end_pos = locatoin_of_gene['end_pos']   
      
-@api_view(['POST'])
-def search_by_gene_name(request):
-    gene_name = request.data.get('gene_name')
-    pvalue = get_p_value(request)
-    if gene_name is None:
-        return Response('No gene name specified.', 
-                        status = status.HTTP_400_BAD_REQUEST)
-    window_size = 0  #just select the feature
-    gl_parameters = get_position_of_gene_by_name(gene_name)
-    matches = process_search_by_genomic_location(gene_name) 
-    if matches is None or len(matches) == 0:
-        return Response('Nothing for that gene.', status = status.HTTP_204_NO_CONTENT)
-    #serializer = ScoresRowSerializer(
-
