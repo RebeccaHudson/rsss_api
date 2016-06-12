@@ -232,8 +232,9 @@ def get_position_of_gene_by_name(gene_name):
                    }
                 }
              } 
-    url = settings.ELASTICSEARCH_URL + "/atsnp_data/gene_names" + "_search"
+    url = settings.ELASTICSEARCH_URL + "/atsnp_data/gene_names/" + "_search"
     json_query = json.dumps(j_dict)
+    print "query : " + json_query
     es_result = requests.post(url, data=json_query)   #returns empty list if no matches.
     gene_coords = get_data_out_of_es_result(es_result)
     if len(gene_coords) == 0: 
@@ -251,7 +252,8 @@ def search_by_gene_name(request):
     gl_coords = get_position_of_gene_by_name(gene_name)
     if gl_coords is None: 
         return Response('Gene name not found in database.', 
-                        status = status.HTTP_400_BAD_REQUEST)
+                        status = status.HTTP_204_NO_CONTENT)
+
     gl_coords['chromosome'] = gl_coords['chr']
     es_query = prepare_json_for_gl_query(gl_coords, pvalue)
    
@@ -267,7 +269,6 @@ def search_by_gene_name(request):
 
     if scoresrows is None or len(scoresrows) == 0:
         return Response('Nothing for that gene.', status = status.HTTP_204_NO_CONTENT)
-    #serializer = ScoresRowSerializer(
 
 
 
