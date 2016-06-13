@@ -7,7 +7,6 @@ from rest_framework.decorators import api_view
 from rest_framework import serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
-#from rest_framework import mixins 
 from django.http import Http404
 from django.conf import settings
 from rest_framework import status 
@@ -15,11 +14,14 @@ import requests
 import re
 import json
 
-#TODO: replace with ES functionality
+
+# TODO: add an actual window size to each of the window-range searches.
+
+# TODO: DRY-up building of elasticsearch URLs
+
 def order_rows_by_genomic_location(rows): 
   return sorted(rows, key=lambda row: row['pos'])   # sort by age
 
- 
 def chunk(input, size):
   chunked =  map(None, *([iter(input)] * size))
   chunks_back = []
@@ -192,7 +194,7 @@ def prepare_json_for_tf_query(motif_list, pval_rank):
                 "filter" : pvalue_filter["filter"]
             } 
         }
-    }                                                            #{
+    } 
     print "query for tf search : " + json.dumps(j_dict)
     return json.dumps(j_dict)
 
@@ -244,11 +246,16 @@ def get_position_of_gene_by_name(gene_name):
 @api_view(['POST'])
 def search_by_gene_name(request):
     gene_name = request.data.get('gene_name')
+    window_size = request.data.get('window_size')
     pvalue = get_p_value(request)
+
+    if window_size is None:
+        window_size = 0
+
     if gene_name is None:
         return Response('No gene name specified.', 
                         status = status.HTTP_400_BAD_REQUEST)
-    window_size = 0  #just select the feature, add window size though.
+
     gl_coords = get_position_of_gene_by_name(gene_name)
     if gl_coords is None: 
         return Response('Gene name not found in database.', 
@@ -269,6 +276,33 @@ def search_by_gene_name(request):
 
     if scoresrows is None or len(scoresrows) == 0:
         return Response('Nothing for that gene.', status = status.HTTP_204_NO_CONTENT)
+
+
+
+@api_view(['POST'])
+def search_by_window_around_snpid(request):
+    one_snpid = request.data.get('snpid')
+    window_size = request.data.get('window_size')
+    if window_size is None:
+        window_size = 0
+ 
+    if one_snpid is None: 
+        return Response('No snpid specified.', 
+                         status = status.HTTP_400_BAD_REQUEST)
+    query_for_snpid_location = {"query":{"match":{"snpid":one_snpid }}}
+    url = settings.ELASTICSEARCH_URL + "/atsnp_data/atsnp_output/" + "_search"
+    es_query = json.dumps(query_for_snpid_location)
+    es_result = requests.post(url, data=es_query)
+    records_for_snpid = get_data_out_of_es_result(es_result)
+    if len(records_for_snpid) == 0: 
+        return Response('No data for snpid.' + one_snpid, 
+                        status = status.HTTP_204_NO_CONTENT)
+    gl_coords = records_for_snpid[0] 
+    print "gl coords for snpid search " + str(gl_coords)
+
+
+
+
 
 
 
