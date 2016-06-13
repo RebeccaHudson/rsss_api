@@ -7,7 +7,6 @@ from rest_framework.decorators import api_view
 from rest_framework import serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
-#from rest_framework import mixins 
 from django.http import Http404
 from django.conf import settings
 from rest_framework import status 
@@ -15,11 +14,14 @@ import requests
 import re
 import json
 
-#TODO: replace with ES functionality
+
+# TODO: add an actual window size to each of the window-range searches.
+
+# TODO: DRY-up building of elasticsearch URLs
+
 def order_rows_by_genomic_location(rows): 
   return sorted(rows, key=lambda row: row['pos'])   # sort by age
 
- 
 def chunk(input, size):
   chunked =  map(None, *([iter(input)] * size))
   chunks_back = []
@@ -99,24 +101,23 @@ def scores_row_list(request):
 
 
 def check_and_aggregate_gl_search_params(request):
-  #print("here's the keys in the request data"  + str(request.data.keys()) )
-  if not all (k in request.data.keys() for k in ("chromosome","start_pos", "end_pos")):
-    return Response('Must include chromosome, start, and end position.',
-                     status = status.HTTP_400_BAD_REQUEST)
-  gl_coords =  {}
-  gl_coords['start_pos'] = request.data['start_pos']
-  gl_coords['end_pos'] = request.data['end_pos']
-  gl_coords['chromosome'] = request.data['chromosome']  # TODO: check for invlaid chromosome
-  gl_coords['pval_rank'] = get_p_value(request)
+    if not all (k in request.data.keys() for k in ("chromosome","start_pos", "end_pos")):
+        return Response('Must include chromosome, start, and end position.',
+                       status = status.HTTP_400_BAD_REQUEST)
+    gl_coords =  {}
+    gl_coords['start_pos'] = request.data['start_pos']
+    gl_coords['end_pos'] = request.data['end_pos']
+    gl_coords['chromosome'] = request.data['chromosome']  # TODO: check for invlaid chromosome
+    gl_coords['pval_rank'] = get_p_value(request)
 
-  if gl_coords['end_pos'] < gl_coords['start_pos']:
-    return Response('Start position is less than end position.',
-                    status = status.HTTP_400_BAD_REQUEST)
- 
-  if gl_coords['end_pos'] - gl_coords['start_pos'] > settings.HARD_LIMITS['MAX_BASES_IN_GL_REQUEST']:
-    return Response('Requested region is too large', 
-                     status=status.HTTP_400_BAD_REQUEST)
-  return gl_coords
+    if gl_coords['end_pos'] < gl_coords['start_pos']:
+        return Response('Start position is less than end position.',
+                      status = status.HTTP_400_BAD_REQUEST)
+   
+    if gl_coords['end_pos'] - gl_coords['start_pos'] > settings.HARD_LIMITS['MAX_BASES_IN_GL_REQUEST']:
+        return Response('Requested region is too large', 
+                       status=status.HTTP_400_BAD_REQUEST)
+    return gl_coords
 
 def prepare_json_for_gl_query(gl_coords, pval_rank):
     pvalue_filter = prepare_json_for_pvalue_filter(pval_rank)
@@ -150,6 +151,9 @@ def search_by_genomic_location(request):
     pvalue = get_p_value(request) #use a default if an invalid value is requested.
 
     gl_coords = gl_coords_or_error_response
+
+    # The following code was copied into the bottom of search_by_snpid_window
+    # TODO: consider DRYing up this part of the code
     es_query = prepare_json_for_gl_query(gl_coords, pvalue)
    
     url = settings.ELASTICSEARCH_URL + "/atsnp_data/" + "_search"
@@ -191,7 +195,7 @@ def prepare_json_for_tf_query(motif_list, pval_rank):
                 "filter" : pvalue_filter["filter"]
             } 
         }
-    }                                                            #{
+    } 
     print "query for tf search : " + json.dumps(j_dict)
     return json.dumps(j_dict)
 
@@ -231,26 +235,33 @@ def get_position_of_gene_by_name(gene_name):
                    }
                 }
              } 
-    url = settings.ELASTICSEARCH_URL + "/atsnp_data/gene_names" + "_search"
+    url = settings.ELASTICSEARCH_URL + "/atsnp_data/gene_names/" + "_search"
     json_query = json.dumps(j_dict)
+    print "query : " + json_query
     es_result = requests.post(url, data=json_query)   #returns empty list if no matches.
     gene_coords = get_data_out_of_es_result(es_result)
     if len(gene_coords) == 0: 
-       return None
+         return None
     return gene_coords[0]
      
 @api_view(['POST'])
 def search_by_gene_name(request):
     gene_name = request.data.get('gene_name')
+    window_size = request.data.get('window_size')
     pvalue = get_p_value(request)
+
+    if window_size is None:
+        window_size = 0
+
     if gene_name is None:
         return Response('No gene name specified.', 
                         status = status.HTTP_400_BAD_REQUEST)
-    window_size = 0  #just select the feature, add window size though.
+
     gl_coords = get_position_of_gene_by_name(gene_name)
     if gl_coords is None: 
         return Response('Gene name not found in database.', 
-                        status = status.HTTP_400_BAD_REQUEST)
+                        status = status.HTTP_204_NO_CONTENT)
+
     gl_coords['chromosome'] = gl_coords['chr']
     es_query = prepare_json_for_gl_query(gl_coords, pvalue)
    
@@ -266,7 +277,59 @@ def search_by_gene_name(request):
 
     if scoresrows is None or len(scoresrows) == 0:
         return Response('Nothing for that gene.', status = status.HTTP_204_NO_CONTENT)
-    #serializer = ScoresRowSerializer(
+
+
+
+@api_view(['POST'])
+def search_by_window_around_snpid(request):
+
+    one_snpid = request.data.get('snpid')
+    window_size = request.data.get('window_size')
+    pvalue = get_p_value(request)
+
+    if window_size is None:
+        window_size = 0
+ 
+    if one_snpid is None: 
+        return Response('No snpid specified.', 
+                         status = status.HTTP_400_BAD_REQUEST)
+
+    query_for_snpid_location = {"query":{"match":{"snpid":one_snpid }}}
+    url = settings.ELASTICSEARCH_URL + "/atsnp_data/atsnp_output/" + "_search"
+    es_query = json.dumps(query_for_snpid_location)
+    es_result = requests.post(url, data=es_query)
+    records_for_snpid = get_data_out_of_es_result(es_result)
+
+    if len(records_for_snpid) == 0: 
+        return Response('No data for snpid ' + one_snpid + '.', 
+                        status = status.HTTP_204_NO_CONTENT)
+
+    record_to_pick = records_for_snpid[0] 
+    gl_coords = { 'chromosome' :  record_to_pick['chr'],
+                  'start_pos'  :  record_to_pick['pos'] - window_size,
+                  'end_pos'    :  record_to_pick['pos'] + window_size
+                 }
+    if gl_coords['start_pos'] < 0:
+        #: TODO consider adding a warning here if this happens?
+        gl_coords['start_pos'] = 0
+
+    # Any other checks needed before search by snpid?
+
+    # copied from the function to search by genomic location
+    es_query = prepare_json_for_gl_query(gl_coords, pvalue)
+   
+    url = settings.ELASTICSEARCH_URL + "/atsnp_data/" + "_search"
+    es_result = requests.post(url, data=es_query)
+    scoresrows = get_data_out_of_es_result(es_result)
+
+    if scoresrows is None or len(scoresrows) == 0:
+        #Unlikely, since the snp had to be looked up for this query to be run.
+        return Response('No matches.', status=status.HTTP_204_NO_CONTENT)
+
+    serializer = ScoresRowSerializer(scoresrows, many = True)
+    return Response(serializer.data, status=status.HTTP_200_OK )
+
+
 
 
 
