@@ -238,7 +238,7 @@ def get_position_of_gene_by_name(gene_name):
              } 
     url = settings.ELASTICSEARCH_URL + "/atsnp_data/gene_names/" + "_search"
     json_query = json.dumps(j_dict)
-    print "query : " + json_query
+    #print "query : " + json_query
     es_result = requests.post(url, data=json_query)   #returns empty list if no matches.
     gene_coords = get_data_out_of_es_result(es_result)
     if len(gene_coords) == 0: 
