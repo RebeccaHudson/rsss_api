@@ -140,7 +140,6 @@ def prepare_json_for_gl_query(gl_coords, pval_rank):
     return json_out
 
 
-
 @api_view(['POST'])
 def search_by_genomic_location(request):
     gl_chunk_size = 100   # TODO: parametrize chunk size in the settings file.
