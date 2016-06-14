@@ -41,11 +41,13 @@ def get_p_value(request):
 
 def get_data_out_of_es_result(es_result):
     es_data = es_result.json()
-    #print("es result : " + str(es_data))
+    print("es result : " + str(es_data))
     #print "es ruesult keys: "  + str(es_data.keys())
     if 'hits' in es_data.keys():
-        return [ x['_source'] for x in es_data['hits']['hits'] ]
-    return [] 
+        data =  [ x['_source'] for x in es_data['hits']['hits'] ]
+        hitcount = es_data['hits']['total']
+        return { 'data':data, 'hitcount': hitcount}
+    return { 'data' : None, 'hitcount': 0 } 
 
 
 
@@ -54,7 +56,7 @@ def prepare_json_for_pvalue_filter(pvalue_rank):
    dict_for_filter = { "filter": {
        "range" : {
            "pval_rank": {
-               "lt":  str(pvalue_rank) 
+               "lte":  str(pvalue_rank) 
            }
        }
    }  }
@@ -89,6 +91,7 @@ def prepare_es_url(data_type, operation="_search", from_result=None):
      url = url + "?size=" + str(settings.ELASTICSEARCH_PAGE_SIZE)
      if from_result is not None:
          url = url + "&from=" + str(from_result) 
+     print "es_url : " + url
      return url
 
 
@@ -238,21 +241,29 @@ def search_by_trans_factor(request):
     motif_or_error_response = check_and_return_motif_value(request)
     if not type(motif_or_error_response) == list:
         return motif_or_error_response   #it's an error response    
-
+    from_result = request.data.get('from_result')
     pvalue = get_p_value(request)
     motif_list = motif_or_error_response       # above established this is a motif. 
+
     es_query = prepare_json_for_tf_query(motif_list, pvalue)
-    es_result = requests.post(prepare_es_url('atsnp_output'), data=es_query)
+    es_result = requests.post(prepare_es_url('atsnp_output', from_result=from_result),
+                              data=es_query)
     #print "result text " + es_result.text    #this will provide useful output when es is failing.
-    scoresrows = get_data_out_of_es_result(es_result)
+    data_returned = get_data_out_of_es_result(es_result)
+   
+    if data_returned['hitcount'] == 0:
+        return Response('No matches.', status=status.HTTP_204_NO_CONTENT)
 
-    if scoresrows is None or len(scoresrows) == 0: 
-      return Response('No matches.', status=status.HTTP_204_NO_CONTENT)
+    if len(data_returned['data']) == 0:
+        return Response('Done paging all ' + \
+                      str(data_returned['hitcount']) + 'results.',
+                      status=status.HTTP_204_NO_CONTENT)
       
-    serializer = ScoresRowSerializer(scoresrows, many = True)
-    
-    return Response(serializer.data, status=status.HTTP_200_OK )
-
+    serializer = ScoresRowSerializer(data_returned['data'], many = True)
+    data_returned['data'] = serializer.data
+ 
+    #return Response(serializer.data, status=status.HTTP_200_OK )
+    return Response(data_returned, status=status.HTTP_200_OK )
 
 def get_position_of_gene_by_name(gene_name):
     j_dict = { "query" : {
