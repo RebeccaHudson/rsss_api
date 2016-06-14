@@ -77,6 +77,16 @@ def prepare_snpid_search_query_from_snpid_chunk(snpid_list, pvalue_rank):
     print("query " + json.dumps(query_dict) )
     return json.dumps(query_dict) 
 
+#prepares elasticsearch urls
+def prepare_es_url(data_type, operation="_search"):
+     url = settings.ELASTICSEARCH_URL + "/atsnp_data/" \
+                                      + data_type      \
+                                      + "/" + operation
+     return url
+
+
+
+
 
 @api_view(['POST'])
 def scores_row_list(request):
@@ -86,11 +96,10 @@ def scores_row_list(request):
     pval_rank = get_p_value(request) 
     snpid_list = request.data['snpid_list']
     chunked_snpid_list = chunk(snpid_list, 50) #TODO: parameterize chunk size somehow.
-    url = settings.ELASTICSEARCH_URL + "/atsnp_data/" + "_search"
    
     for one_chunk  in chunked_snpid_list:
       es_query = prepare_snpid_search_query_from_snpid_chunk(one_chunk, pval_rank)  
-      es_result = requests.post(url, data=es_query)
+      es_result = requests.post(prepare_es_url('atsnp_output'), data=es_query)
       scoresrows_to_return.extend(get_data_out_of_es_result(es_result))
 
     if scoresrows_to_return is None or len(scoresrows_to_return) == 0:
@@ -156,8 +165,7 @@ def search_by_genomic_location(request):
     # TODO: consider DRYing up this part of the code
     es_query = prepare_json_for_gl_query(gl_coords, pvalue)
    
-    url = settings.ELASTICSEARCH_URL + "/atsnp_data/" + "_search"
-    es_result = requests.post(url, data=es_query)
+    es_result = requests.post(prepare_es_url('atsnp_output'), data=es_query)
     scoresrows = get_data_out_of_es_result(es_result)
 
     if scoresrows is None or len(scoresrows) == 0:
@@ -230,8 +238,7 @@ def search_by_trans_factor(request):
     #in_clause = " in (" + motif_str + ")"
     # This may need some actual paging going on for this...
     es_query = prepare_json_for_tf_query(motif_list, pvalue)
-    url = settings.ELASTICSEARCH_URL + "/atsnp_data/" + "_search"
-    es_result = requests.post(url, data=es_query)
+    es_result = requests.post(prepare_es_url('atsnp_output'), data=es_query)
     #print "result text " + es_result.text    #this will provide useful output when es is failing.
     scoresrows = get_data_out_of_es_result(es_result)
 
@@ -250,10 +257,9 @@ def get_position_of_gene_by_name(gene_name):
                    }
                 }
              } 
-    url = settings.ELASTICSEARCH_URL + "/atsnp_data/gene_names/" + "_search"
     json_query = json.dumps(j_dict)
     #print "query : " + json_query
-    es_result = requests.post(url, data=json_query)   #returns empty list if no matches.
+    es_result = requests.post(prepare_es_url('gene_names'), data=json_query)   #returns empty list if no matches.
     gene_coords = get_data_out_of_es_result(es_result)
     if len(gene_coords) == 0: 
          return None
@@ -280,8 +286,7 @@ def search_by_gene_name(request):
     gl_coords['chromosome'] = gl_coords['chr']
     es_query = prepare_json_for_gl_query(gl_coords, pvalue)
    
-    url = settings.ELASTICSEARCH_URL + "/atsnp_data/atsnp_output/" + "_search"
-    es_result = requests.post(url, data=es_query)
+    es_result = requests.post(prepare_es_url('atsnp_output'), data=es_query)
     scoresrows = get_data_out_of_es_result(es_result)
 
     if scoresrows is None or len(scoresrows) == 0:
@@ -310,9 +315,8 @@ def search_by_window_around_snpid(request):
                          status = status.HTTP_400_BAD_REQUEST)
 
     query_for_snpid_location = {"query":{"match":{"snpid":one_snpid }}}
-    url = settings.ELASTICSEARCH_URL + "/atsnp_data/atsnp_output/" + "_search"
     es_query = json.dumps(query_for_snpid_location)
-    es_result = requests.post(url, data=es_query)
+    es_result = requests.post(prepare_es_url('atsnp_output'), data=es_query)
     records_for_snpid = get_data_out_of_es_result(es_result)
 
     if len(records_for_snpid) == 0: 
@@ -333,8 +337,7 @@ def search_by_window_around_snpid(request):
     # copied from the function to search by genomic location
     es_query = prepare_json_for_gl_query(gl_coords, pvalue)
    
-    url = settings.ELASTICSEARCH_URL + "/atsnp_data/" + "_search"
-    es_result = requests.post(url, data=es_query)
+    es_result = requests.post(prepare_es_url('atsnp_output'), data=es_query)
     scoresrows = get_data_out_of_es_result(es_result)
 
     if scoresrows is None or len(scoresrows) == 0:
@@ -347,46 +350,24 @@ def search_by_window_around_snpid(request):
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+# TODO: revive the potting code!!
 
 @api_view(['POST'])
 def get_plotting_data_for_snpid(request):
+    pass
     #the plotting data will not have pvalues on it...
     # TODO probably change this to include the motif in the lookup?
-    snpid_requested = request.data.get('snpid')
-    if snpid_requested is None:
-        return Response('No snpid specified.', 
-                          status = status.HTTP_400_BAD_REQUEST) 
-    snpid_requested = snpid_requested.encode('ascii')
-    cql = 'select * from '                                    +\
-    settings.CASSANDRA_TABLE_NAMES['TABLE_FOR_PLOTTING_DATA'] +\
-    ' where snpid = ' + repr(snpid_requested)+';'
-    cursor = connection.cursor()
-    location_of_gene = cursor.execute(cql).current_rows
-    return location_of_gene    #TODO: handle the case where a non-existing gene is specified.
+    #snpid_requested = request.data.get('snpid')
+    #if snpid_requested is None:
+    #    return Response('No snpid specified.', 
+    #                      status = status.HTTP_400_BAD_REQUEST) 
+    #snpid_requested = snpid_requested.encode('ascii')
+    #cql = 'select * from '                                    +\
+    #settings.CASSANDRA_TABLE_NAMES['TABLE_FOR_PLOTTING_DATA'] +\
+    #' where snpid = ' + repr(snpid_requested)+';'
+    #cursor = connection.cursor()
+    #location_of_gene = cursor.execute(cql).current_rows
+    #return location_of_gene    #TODO: handle the case where a non-existing gene is specified.
     #chromosome = location_of_gene['chr']
     #start_pos = location_of_gene['start_pos']
     #end_pos = locatoin_of_gene['end_pos']   
