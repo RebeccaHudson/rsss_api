@@ -41,8 +41,8 @@ def get_p_value(request):
 
 def get_data_out_of_es_result(es_result):
     es_data = es_result.json()
-    print("es result : " + str(es_data))
-    print "es ruesult keys: "  + str(es_data.keys())
+    #print("es result : " + str(es_data))
+    #print "es ruesult keys: "  + str(es_data.keys())
     if 'hits' in es_data.keys():
         return [ x['_source'] for x in es_data['hits']['hits'] ]
     return [] 
@@ -186,13 +186,27 @@ def check_and_return_motif_value(request):
 def prepare_json_for_tf_query(motif_list, pval_rank):
     pvalue_filter = prepare_json_for_pvalue_filter(pval_rank)
     shoulds = []
-    for one_motif in motif_list:
-       shoulds.append({ "match" : { "motif" : one_motif } })
+    # this doesn't seem to prevent nonmatches from getting in.
+    #for one_motif in motif_list:
+    #   shoulds.append({ "match" : { "motif" : one_motif } })
+    #j_dict={
+    #    "query" : {
+    #        "bool" : {
+    #            "should" : shoulds,
+    #            "filter" : pvalue_filter["filter"]
+    #        } 
+    #    }
+    #} 
+    motif_str = " ".join(motif_list)
     j_dict={
         "query" : {
             "bool" : {
-                "should" : shoulds,
-                "filter" : pvalue_filter["filter"]
+                 "must" : {
+                   "match" : {
+                       "motif" : { "query": motif_str }
+                   }
+                  },
+                 "filter" : pvalue_filter["filter"]
             } 
         }
     } 
@@ -218,6 +232,7 @@ def search_by_trans_factor(request):
     es_query = prepare_json_for_tf_query(motif_list, pvalue)
     url = settings.ELASTICSEARCH_URL + "/atsnp_data/" + "_search"
     es_result = requests.post(url, data=es_query)
+    #print "result text " + es_result.text    #this will provide useful output when es is failing.
     scoresrows = get_data_out_of_es_result(es_result)
 
     if scoresrows is None or len(scoresrows) == 0: 
