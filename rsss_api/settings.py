@@ -125,7 +125,7 @@ DATABASES = {
 # https://docs.djangoproject.com/en/1.9/ref/settings/#auth-password-validators
 
 ELASTICSEARCH_URL='http://quasar-19:9200'
-
+ELASTICSEARCH_PAGE_SIZE = 5  # this should be pretty large, ultimately.
 
 AUTH_PASSWORD_VALIDATORS = [
     {

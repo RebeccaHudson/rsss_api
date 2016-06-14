@@ -77,11 +77,18 @@ def prepare_snpid_search_query_from_snpid_chunk(snpid_list, pvalue_rank):
     print("query " + json.dumps(query_dict) )
     return json.dumps(query_dict) 
 
+
 #prepares elasticsearch urls
-def prepare_es_url(data_type, operation="_search"):
+#from result should just be passed in from whatever is using this API.
+#we'll have to ensure that any such user has sufficient information to do so.
+def prepare_es_url(data_type, operation="_search", from_result=None):
      url = settings.ELASTICSEARCH_URL + "/atsnp_data/" \
                                       + data_type      \
                                       + "/" + operation
+
+     url = url + "?size=" + str(settings.ELASTICSEARCH_PAGE_SIZE)
+     if from_result is not None:
+         url = url + "&from=" + str(from_result) 
      return url
 
 
@@ -227,16 +234,13 @@ def prepare_json_for_tf_query(motif_list, pval_rank):
 #  this API expects motif values. 
 @api_view(['POST'])
 def search_by_trans_factor(request):
+
     motif_or_error_response = check_and_return_motif_value(request)
-    print('motif or error response is : ' + str(type(motif_or_error_response)))
     if not type(motif_or_error_response) == list:
         return motif_or_error_response   #it's an error response    
 
     pvalue = get_p_value(request)
-    motif_list = motif_or_error_response # above established this is a motif. 
-    #motif_str = ", ".join([ repr(x.encode('ascii')) for x in motif])
-    #in_clause = " in (" + motif_str + ")"
-    # This may need some actual paging going on for this...
+    motif_list = motif_or_error_response       # above established this is a motif. 
     es_query = prepare_json_for_tf_query(motif_list, pvalue)
     es_result = requests.post(prepare_es_url('atsnp_output'), data=es_query)
     #print "result text " + es_result.text    #this will provide useful output when es is failing.
