@@ -3,12 +3,13 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 from django.db import connection
 from django.conf import settings
+from api_v0.tests.es_paging import RSSS_APITestCase
 import json
 import os
 
 #This is supposed to test all of the cases for API requests to search by genomic location. 
 #From an actual form POST. 
-class GenomicLocationSearchTests(APITestCase):
+class GenomicLocationSearchTests(RSSS_APITestCase):
 
     def test_nomatch_response_for_gl_search(self):
         print("testing nomatch response for genomic location search")
@@ -35,7 +36,6 @@ class GenomicLocationSearchTests(APITestCase):
         response = self.client.post(url, request_data, format = 'json')
         self.assertEqual(response.data, 'Start position is less than end position.')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-   
 
         # TODO Make sure that start position and end position are > 0 
 
@@ -66,6 +66,12 @@ class GenomicLocationSearchTests(APITestCase):
         # The chromosome is specified, but it's invalid. Go to hell!       
         # TODO: Write this test once I have a set of valid chromosome.
 
+    def test_gl_search_with_pagination(self):
+        url = reverse('api_v0:gl-search')
+        request_data = { 'chromosome' : 'ch1', 
+                         'start_pos' : 10257,
+                         'end_pos' : 10657, 'pvalue_rank' : 0.8 }
+        self.grab_pages_of_data(request_data, url) 
 
 
     def test_gl_search(self):
