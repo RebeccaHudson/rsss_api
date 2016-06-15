@@ -159,8 +159,20 @@ def prepare_json_for_gl_query(gl_coords, pval_rank):
     return json_out
 
 
+def return_any_hits(data_returned):
+    if data_returned['hitcount'] == 0:
+        return Response('No matches.', status=status.HTTP_204_NO_CONTENT)
+    if len(data_returned['data']) == 0:
+        return Response('Done paging all ' + \
+                      str(data_returned['hitcount']) + 'results.',
+                      status=status.HTTP_204_NO_CONTENT)
+    serializer = ScoresRowSerializer(data_returned['data'], many = True)
+    data_returned['data'] = serializer.data
+    return Response(data_returned, status=status.HTTP_200_OK)
+
 @api_view(['POST'])
 def search_by_genomic_location(request):
+    
     gl_chunk_size = 100   # TODO: parametrize chunk size in the settings file.
     gl_coords_or_error_response = check_and_aggregate_gl_search_params(request)
 
@@ -170,20 +182,25 @@ def search_by_genomic_location(request):
     pvalue = get_p_value(request) #use a default if an invalid value is requested.
 
     gl_coords = gl_coords_or_error_response
+    from_result = request.data.get('from_result')
 
     # The following code was copied into the bottom of search_by_snpid_window
     # TODO: consider DRYing up this part of the code
     es_query = prepare_json_for_gl_query(gl_coords, pvalue)
    
-    es_result = requests.post(prepare_es_url('atsnp_output'), data=es_query)
-    scoresrows = get_data_out_of_es_result(es_result)
+    es_result = requests.post(
+                         prepare_es_url('atsnp_output', from_result=from_result),
+                         data=es_query)
 
-    if scoresrows is None or len(scoresrows) == 0:
-        return Response('No matches.', status=status.HTTP_204_NO_CONTENT)
+    #data_returned = get_data_out_of_es_result(es_result)
 
-    serializer = ScoresRowSerializer(scoresrows, many = True)
-    return Response(serializer.data, status=status.HTTP_200_OK )
+    #if data[returned is None or len(scoresrows) == 0:
+    #    return Response('No matches.', status=status.HTTP_204_NO_CONTENT)
 
+    #serializer = ScoresRowSerializer(scoresrows, many = True)
+    #return Response(serializer.data, status=status.HTTP_200_OK )
+    data_back = get_data_out_of_es_result(es_result)
+    return return_any_hits(data_back)
 
 # this can be > 1, but is usually = 1.
 def check_and_return_motif_value(request):
@@ -204,17 +221,6 @@ def check_and_return_motif_value(request):
 def prepare_json_for_tf_query(motif_list, pval_rank):
     pvalue_filter = prepare_json_for_pvalue_filter(pval_rank)
     shoulds = []
-    # this doesn't seem to prevent nonmatches from getting in.
-    #for one_motif in motif_list:
-    #   shoulds.append({ "match" : { "motif" : one_motif } })
-    #j_dict={
-    #    "query" : {
-    #        "bool" : {
-    #            "should" : shoulds,
-    #            "filter" : pvalue_filter["filter"]
-    #        } 
-    #    }
-    #} 
     motif_str = " ".join(motif_list)
     j_dict={
         "query" : {
