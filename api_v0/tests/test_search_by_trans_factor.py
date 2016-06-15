@@ -2,11 +2,12 @@ from django.core.urlresolvers import reverse
 from django.conf import settings
 from rest_framework.test import APITestCase
 #from . import ESPaging
+from api_v0.tests.es_paging import RSSS_APITestCase
 from rest_framework import status
 import json
 import re
 
-class TranscriptionFactorSearchTests(APITestCase):
+class TranscriptionFactorSearchTests(RSSS_APITestCase):
 
     # currently, web interface is required to handle translation between
     # motif value and names of transcription factors.
@@ -20,24 +21,6 @@ class TranscriptionFactorSearchTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         response_json = json.loads(response.content)
         print "length of valid response = " + str(len(response_json))
-
-    # Is the hitcount coming back to the user?
-    # keep hitting es w/ higher FROMs until it comes back 204
-    def grab_pages_of_data(self, post_data, url):
-        keep_going = True
-        i = 0
-        while keep_going is True:
-            response = self.client.post(url, post_data, format='json')
-            print "text of response" + repr(response)
-            if response.status_code == status.HTTP_204_NO_CONTENT: 
-                keep_going = False
-            else:
-                response_json = json.loads(response.content)
-                i += 1 
-                from_result = settings.ELASTICSEARCH_PAGE_SIZE * i
-                print "got this much data: " + str(len(response_json['data'])) + " on page " + str(i) 
-                print "hitcount claims to be: " + str(response_json['hitcount'])
-                post_data['from_result'] = from_result
 
 
     def test_simple_valid_search_by_tf_pagination(self):
