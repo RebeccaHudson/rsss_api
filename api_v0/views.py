@@ -187,18 +187,9 @@ def search_by_genomic_location(request):
     # The following code was copied into the bottom of search_by_snpid_window
     # TODO: consider DRYing up this part of the code
     es_query = prepare_json_for_gl_query(gl_coords, pvalue)
-   
     es_result = requests.post(
                          prepare_es_url('atsnp_output', from_result=from_result),
                          data=es_query)
-
-    #data_returned = get_data_out_of_es_result(es_result)
-
-    #if data[returned is None or len(scoresrows) == 0:
-    #    return Response('No matches.', status=status.HTTP_204_NO_CONTENT)
-
-    #serializer = ScoresRowSerializer(scoresrows, many = True)
-    #return Response(serializer.data, status=status.HTTP_200_OK )
     data_back = get_data_out_of_es_result(es_result)
     return return_any_hits(data_back)
 
@@ -254,22 +245,9 @@ def search_by_trans_factor(request):
     es_query = prepare_json_for_tf_query(motif_list, pvalue)
     es_result = requests.post(prepare_es_url('atsnp_output', from_result=from_result),
                               data=es_query)
-    #print "result text " + es_result.text    #this will provide useful output when es is failing.
-    data_returned = get_data_out_of_es_result(es_result)
-   
-    if data_returned['hitcount'] == 0:
-        return Response('No matches.', status=status.HTTP_204_NO_CONTENT)
+    data_back = get_data_out_of_es_result(es_result)
+    return return_any_hits(data_back)
 
-    if len(data_returned['data']) == 0:
-        return Response('Done paging all ' + \
-                      str(data_returned['hitcount']) + 'results.',
-                      status=status.HTTP_204_NO_CONTENT)
-      
-    serializer = ScoresRowSerializer(data_returned['data'], many = True)
-    data_returned['data'] = serializer.data
- 
-    #return Response(serializer.data, status=status.HTTP_200_OK )
-    return Response(data_returned, status=status.HTTP_200_OK )
 
 def get_position_of_gene_by_name(gene_name):
     j_dict = { "query" : {
@@ -280,7 +258,7 @@ def get_position_of_gene_by_name(gene_name):
              } 
     json_query = json.dumps(j_dict)
     #print "query : " + json_query
-    es_result = requests.post(prepare_es_url('gene_names'), data=json_query)   #returns empty list if no matches.
+    es_result = requests.post(prepare_es_url('gene_names'), data=json_query) 
     gene_coords = get_data_out_of_es_result(es_result)
     if len(gene_coords) == 0: 
          return None
