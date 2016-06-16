@@ -95,29 +95,31 @@ def prepare_es_url(data_type, operation="_search", from_result=None):
      return url
 
 
-
-
-
 @api_view(['POST'])
 def scores_row_list(request):
     #print str(request.data)  #expect this to be a list of quoted strings...
-    scoresrows_to_return = []
+    list_of_data_to_return = []
 
     pval_rank = get_p_value(request) 
     snpid_list = request.data['snpid_list']
-    chunked_snpid_list = chunk(snpid_list, 50) #TODO: parameterize chunk size somehow.
-   
-    for one_chunk  in chunked_snpid_list:
-      es_query = prepare_snpid_search_query_from_snpid_chunk(one_chunk, pval_rank)  
-      es_result = requests.post(prepare_es_url('atsnp_output'), data=es_query)
-      scoresrows_to_return.extend(get_data_out_of_es_result(es_result))
-
-    if scoresrows_to_return is None or len(scoresrows_to_return) == 0:
-      return Response('No matches.', status=status.HTTP_204_NO_CONTENT)
+    #chunked_snpid_list = chunk(snpid_list, 50) #TODO: parameterize chunk size somehow.
+    from_result = request.data.get('from_result')
+    es_query = prepare_snpid_search_query_from_snpid_chunk(snpid_list, pval_rank)  
+    es_result = requests.post(prepare_es_url('atsnp_output', 
+                              from_result=from_result),  data=es_query)
+    #for one_chunk  in chunked_snpid_list:
+    #  es_query = prepare_snpid_search_query_from_snpid_chunk(one_chunk, pval_rank)  
+    #  es_result = requests.post(prepare_es_url('atsnp_output', 
+    #                            from_result=from_result),  data=es_query)
+    #  list_of_data_to_return.extend(get_data_out_of_es_result(es_result)['data'])
     
-    serializer = ScoresRowSerializer(scoresrows_to_return, many = True)
-    return Response(serializer.data)
-
+    #if scoresrows_to_return is None or len(scoresrows_to_return) == 0:
+    #  return Response('No matches.', status=status.HTTP_204_NO_CONTENT)
+    #
+    #serializer = ScoresRowSerializer(scoresrows_to_return, many = True)
+    #return Response(serializer.data)
+    data_back = get_data_out_of_es_result(es_result)
+    return return_any_hits(data_back)
 
 def check_and_aggregate_gl_search_params(request):
     if not all (k in request.data.keys() for k in ("chromosome","start_pos", "end_pos")):
