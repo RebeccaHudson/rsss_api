@@ -31,7 +31,6 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
-    'django_cassandra_engine',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -124,7 +123,8 @@ DATABASES = {
 # Password validation
 # https://docs.djangoproject.com/en/1.9/ref/settings/#auth-password-validators
 
-ELASTICSEARCH_URL='http://quasar-19:9200'
+#ELASTICSEARCH_URL='http://quasar-19:9200'
+ELASTICSEARCH_URL='http://atsnp-db1.biostat.wisc.edu:9200'
 ELASTICSEARCH_PAGE_SIZE = 5  # this should be pretty large, ultimately.
 
 AUTH_PASSWORD_VALIDATORS = [
