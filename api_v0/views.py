@@ -17,8 +17,6 @@ import json
 
 # TODO: add an actual window size to each of the window-range searches.
 
-# TODO: DRY-up building of elasticsearch URLs
-
 def order_rows_by_genomic_location(rows): 
   return sorted(rows, key=lambda row: row['pos'])   # sort by age
 
@@ -320,11 +318,11 @@ def search_by_window_around_snpid(request):
     es_result = requests.post(prepare_es_url('atsnp_output'), data=es_query)
     records_for_snpid = get_data_out_of_es_result(es_result)
 
-    if len(records_for_snpid) == 0: 
+    if len(records_for_snpid['data']) == 0: 
         return Response('No data for snpid ' + one_snpid + '.', 
                         status = status.HTTP_204_NO_CONTENT)
 
-    record_to_pick = records_for_snpid[0] 
+    record_to_pick = records_for_snpid['data'][0]
     gl_coords = { 'chromosome' :  record_to_pick['chr'],
                   'start_pos'  :  record_to_pick['pos'] - window_size,
                   'end_pos'    :  record_to_pick['pos'] + window_size
@@ -339,19 +337,10 @@ def search_by_window_around_snpid(request):
     es_query = prepare_json_for_gl_query(gl_coords, pvalue)
    
     es_result = requests.post(prepare_es_url('atsnp_output'), data=es_query)
-    scoresrows = get_data_out_of_es_result(es_result)
+    data_back = get_data_out_of_es_result(es_result)
+    return return_any_hits(data_back)
 
-    if scoresrows is None or len(scoresrows) == 0:
-        #Unlikely, since the snp had to be looked up for this query to be run.
-        return Response('No matches.', status=status.HTTP_204_NO_CONTENT)
-
-    serializer = ScoresRowSerializer(scoresrows, many = True)
-    return Response(serializer.data, status=status.HTTP_200_OK )
-
-
-
-
-# TODO: revive the potting code!!
+# TODO: revive the plotting code!!
 
 @api_view(['POST'])
 def get_plotting_data_for_snpid(request):
