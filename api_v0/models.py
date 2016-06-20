@@ -7,6 +7,8 @@ from django.db import models
 class ScoresRow(models.Model):
   snpid = models.CharField(max_length=30)
   motif = models.CharField(max_length=30) 
+  refAllele = models.CharField(max_length=2)
+  snpAllele = models.CharField(max_length=2)
   motif_len = models.IntegerField()
   log_lik_ref = models.FloatField()  
   log_lik_snp = models.FloatField() 
@@ -29,4 +31,3 @@ class ScoresRow(models.Model):
   pos = models.IntegerField()
   class Meta:
     managed = False
-    db_table = 'snp_scores_2'

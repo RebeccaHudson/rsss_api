@@ -260,9 +260,9 @@ def get_position_of_gene_by_name(gene_name):
     #print "query : " + json_query
     es_result = requests.post(prepare_es_url('gene_names'), data=json_query) 
     gene_coords = get_data_out_of_es_result(es_result)
-    if len(gene_coords) == 0: 
+    if gene_coords['hitcount'] == 0: 
          return None
-    return gene_coords[0]
+    return gene_coords['data'][0]
      
 @api_view(['POST'])
 def search_by_gene_name(request):
@@ -286,17 +286,8 @@ def search_by_gene_name(request):
     es_query = prepare_json_for_gl_query(gl_coords, pvalue)
    
     es_result = requests.post(prepare_es_url('atsnp_output'), data=es_query)
-    scoresrows = get_data_out_of_es_result(es_result)
-
-    if scoresrows is None or len(scoresrows) == 0:
-        return Response('No matches.', status=status.HTTP_204_NO_CONTENT)
-
-    serializer = ScoresRowSerializer(scoresrows, many = True)
-    return Response(serializer.data, status=status.HTTP_200_OK )
-
-    if scoresrows is None or len(scoresrows) == 0:
-        return Response('Nothing for that gene.', status = status.HTTP_204_NO_CONTENT)
-
+    data_back  = get_data_out_of_es_result(es_result)
+    return return_any_hits(data_back)
 
 
 @api_view(['POST'])
@@ -331,9 +322,6 @@ def search_by_window_around_snpid(request):
         #: TODO consider adding a warning here if this happens?
         gl_coords['start_pos'] = 0
 
-    # Any other checks needed before search by snpid?
-
-    # copied from the function to search by genomic location
     es_query = prepare_json_for_gl_query(gl_coords, pvalue)
    
     es_result = requests.post(prepare_es_url('atsnp_output'), data=es_query)
