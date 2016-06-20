@@ -60,11 +60,18 @@ def prepare_json_for_pvalue_filter(pvalue_rank):
    }  }
    return dict_for_filter 
 
+def prepare_json_for_sort():
+    dict_for_sort = {
+                      "sort" : [ { "pval_rank" : { "order" : "asc" } } ]
+                    }
+    return dict_for_sort
 
 def prepare_snpid_search_query_from_snpid_chunk(snpid_list, pvalue_rank):
     snp_list = snpid_list 
     filter_dict = prepare_json_for_pvalue_filter(pvalue_rank)
+    sort = prepare_json_for_sort()
     query_dict = {
+      "sort" : sort["sort"],
       "query": {
         "bool": {
           "must": {
@@ -105,17 +112,7 @@ def scores_row_list(request):
     es_query = prepare_snpid_search_query_from_snpid_chunk(snpid_list, pval_rank)  
     es_result = requests.post(prepare_es_url('atsnp_output', 
                               from_result=from_result),  data=es_query)
-    #for one_chunk  in chunked_snpid_list:
-    #  es_query = prepare_snpid_search_query_from_snpid_chunk(one_chunk, pval_rank)  
-    #  es_result = requests.post(prepare_es_url('atsnp_output', 
-    #                            from_result=from_result),  data=es_query)
-    #  list_of_data_to_return.extend(get_data_out_of_es_result(es_result)['data'])
-    
-    #if scoresrows_to_return is None or len(scoresrows_to_return) == 0:
-    #  return Response('No matches.', status=status.HTTP_204_NO_CONTENT)
-    #
-    #serializer = ScoresRowSerializer(scoresrows_to_return, many = True)
-    #return Response(serializer.data)
+
     data_back = get_data_out_of_es_result(es_result)
     return return_any_hits(data_back)
 
@@ -140,7 +137,10 @@ def check_and_aggregate_gl_search_params(request):
 
 def prepare_json_for_gl_query(gl_coords, pval_rank):
     pvalue_filter = prepare_json_for_pvalue_filter(pval_rank)
-    j_dict = {   "query":
+    sort = prepare_json_for_sort()
+    j_dict = {   
+        "sort" : sort["sort"], 
+        "query":
         {
             "bool" : {
                 "must" : [
@@ -211,9 +211,10 @@ def check_and_return_motif_value(request):
 
 def prepare_json_for_tf_query(motif_list, pval_rank):
     pvalue_filter = prepare_json_for_pvalue_filter(pval_rank)
-    shoulds = []
+    sort = prepare_json_for_sort()
     motif_str = " ".join(motif_list)
     j_dict={
+        "sort" : sort["sort"],
         "query" : {
             "bool" : {
                  "must" : {
@@ -225,7 +226,6 @@ def prepare_json_for_tf_query(motif_list, pval_rank):
             } 
         }
     } 
-    print "query for tf search : " + json.dumps(j_dict)
     return json.dumps(j_dict)
 
 
