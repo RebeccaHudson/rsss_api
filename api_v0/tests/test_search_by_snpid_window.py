@@ -41,7 +41,6 @@ class SearchBySnpidWindowTests(APITestCase):
                         'window_size': 99999 }
       response = self.client.post(url, request_data, format='json')
       print "length of response : " + str(len(response.data)) 
-      print "one item of response data: " + str(response.data[0])
       #self.assertEqual(response.status_code, status.HTTP_200_OK)
       #add assertions about response data
 

@@ -17,17 +17,15 @@ import json
 
 # TODO: add an actual window size to each of the window-range searches.
 
-def order_rows_by_genomic_location(rows): 
-  return sorted(rows, key=lambda row: row['pos'])   # sort by age
 
 def chunk(input, size):
   chunked =  map(None, *([iter(input)] * size))
   chunks_back = []
-  print "chunked " + str(chunked)
+  #print "chunked " + str(chunked)
   for one_chunk in chunked:
       if one_chunk is not None:
           chunks_back.append([ x.encode("ascii") for x in one_chunk if x is not None])
-  print "chunks back  " + str(chunks_back)
+  #print "chunks back  " + str(chunks_back)
   return chunks_back
 
 # TODO: return an error if a p-value input is invalid.
@@ -39,7 +37,7 @@ def get_p_value(request):
 
 def get_data_out_of_es_result(es_result):
     es_data = es_result.json()
-    print("es result : " + str(es_data))
+    #print("es result : " + str(es_data))
     #print "es ruesult keys: "  + str(es_data.keys())
     if 'hits' in es_data.keys():
         data =  [ x['_source'] for x in es_data['hits']['hits'] ]
@@ -81,7 +79,7 @@ def prepare_snpid_search_query_from_snpid_chunk(snpid_list, pvalue_rank):
         }
       }
     }
-    print("query " + json.dumps(query_dict) )
+    #print("query " + json.dumps(query_dict) )
     return json.dumps(query_dict) 
 
 
@@ -196,8 +194,8 @@ def search_by_genomic_location(request):
 # this can be > 1, but is usually = 1.
 def check_and_return_motif_value(request):
     one_or_more_motifs = request.data.get('motif')
-    print("type of motif param: " + str(type(one_or_more_motifs)))
-    print("one or more motifs: " + str(one_or_more_motifs))
+    #print("type of motif param: " + str(type(one_or_more_motifs)))
+    #print("one or more motifs: " + str(one_or_more_motifs))
     if one_or_more_motifs is None: 
         return Response('No motif specified!', 
                         status = status.HTTP_400_BAD_REQUEST)    
@@ -285,7 +283,9 @@ def search_by_gene_name(request):
     gl_coords['chromosome'] = gl_coords['chr']
     es_query = prepare_json_for_gl_query(gl_coords, pvalue)
    
-    es_result = requests.post(prepare_es_url('atsnp_output'), data=es_query)
+    from_result = request.data.get('from_result')
+    es_result = requests.post(prepare_es_url('atsnp_output', from_result=from_result), 
+                              data=es_query)
     data_back  = get_data_out_of_es_result(es_result)
     return return_any_hits(data_back)
 
@@ -324,7 +324,9 @@ def search_by_window_around_snpid(request):
 
     es_query = prepare_json_for_gl_query(gl_coords, pvalue)
    
-    es_result = requests.post(prepare_es_url('atsnp_output'), data=es_query)
+    from_result = request.data.get('from_result')
+    es_result = requests.post(prepare_es_url('atsnp_output', from_result=from_result), 
+                              data=es_query)
     data_back = get_data_out_of_es_result(es_result)
     return return_any_hits(data_back)
 
