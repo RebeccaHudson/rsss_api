@@ -43,6 +43,9 @@ def get_data_out_of_es_result(es_result):
         data =  [ x['_source'] for x in es_data['hits']['hits'] ]
         hitcount = es_data['hits']['total']
         return { 'data':data, 'hitcount': hitcount}
+    else:
+        print "no hits, then what is it? "
+        print "es result : " + str(es_data)
     return { 'data' : None, 'hitcount': 0 } 
 
 
@@ -86,12 +89,15 @@ def prepare_snpid_search_query_from_snpid_chunk(snpid_list, pvalue_rank):
 #prepares elasticsearch urls
 #from result should just be passed in from whatever is using this API.
 #we'll have to ensure that any such user has sufficient information to do so.
-def prepare_es_url(data_type, operation="_search", from_result=None):
+def prepare_es_url(data_type, operation="_search", from_result=None, 
+                   page_size=None):
      url = settings.ELASTICSEARCH_URL + "/atsnp_data/" \
                                       + data_type      \
                                       + "/" + operation
+     if page_size is None:
+         page_size  =   settings.ELASTICSEARCH_PAGE_SIZE
+     url = url + "?size=" + str(page_size)
 
-     url = url + "?size=" + str(settings.ELASTICSEARCH_PAGE_SIZE)
      if from_result is not None:
          url = url + "&from=" + str(from_result) 
      print "es_url : " + url
@@ -237,12 +243,13 @@ def search_by_trans_factor(request):
     if not type(motif_or_error_response) == list:
         return motif_or_error_response   #it's an error response    
     from_result = request.data.get('from_result')
+    page_size = request.data.get('page_size')
     pvalue = get_p_value(request)
     motif_list = motif_or_error_response       # above established this is a motif. 
-
+ 
+    es_url = prepare_es_url('atsnp_output', from_result=from_result, page_size=page_size)
     es_query = prepare_json_for_tf_query(motif_list, pvalue)
-    es_result = requests.post(prepare_es_url('atsnp_output', from_result=from_result),
-                              data=es_query)
+    es_result = requests.post(es_url, data=es_query)
     data_back = get_data_out_of_es_result(es_result)
     return return_any_hits(data_back)
 
