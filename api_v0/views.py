@@ -170,6 +170,14 @@ def return_any_hits(data_returned):
         return Response('Done paging all ' + \
                       str(data_returned['hitcount']) + 'results.',
                       status=status.HTTP_204_NO_CONTENT)
+
+    #this is very rough, maybe there is a better solution
+    for one_row in data_returned['data']:
+        if one_row.get('plot_available') is not None:
+            one_row['has_plot'] = True
+        else: 
+            one_row['has_plot'] = False
+
     serializer = ScoresRowSerializer(data_returned['data'], many = True)
     data_returned['data'] = serializer.data
     return Response(data_returned, status=status.HTTP_200_OK)

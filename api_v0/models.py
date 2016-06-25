@@ -29,5 +29,6 @@ class ScoresRow(models.Model):
   pval_rank = models.FloatField() 
   chr = models.CharField(max_length=10)
   pos = models.IntegerField()
+  has_plot = models.BooleanField()
   class Meta:
     managed = False

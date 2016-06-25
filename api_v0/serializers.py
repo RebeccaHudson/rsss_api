@@ -14,5 +14,6 @@ class ScoresRowSerializer(serializers.ModelSerializer):
               'ref_strand', 'snp_strand',
               'pval_ref', 'pval_snp',
               'pval_cond_ref', 'pval_cond_snp', 
-              'pval_diff', 'pval_rank', 'refAllele', 'snpAllele')
+              'pval_diff', 'pval_rank', 'refAllele', 'snpAllele',
+              'has_plot')
 
