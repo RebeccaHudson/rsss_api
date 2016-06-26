@@ -273,9 +273,14 @@ def get_position_of_gene_by_name(gene_name):
     #print "query : " + json_query
     es_result = requests.post(prepare_es_url('gene_names'), data=json_query) 
     gene_coords = get_data_out_of_es_result(es_result)
+    print "gene coords (should work ) : " + str(gene_coords)
     if gene_coords['hitcount'] == 0: 
          return None
-    return gene_coords['data'][0]
+    gc = gene_coords['data'][0]
+    gl_coords = { 'chromosome': gc['chr'].replace('hr', 'h') ,
+                  'start_pos' : gc['start_pos'] ,
+                  'end_pos'   : gc['end_pos']     }
+    return gl_coords 
      
 @api_view(['POST'])
 def search_by_gene_name(request):
@@ -291,12 +296,14 @@ def search_by_gene_name(request):
                         status = status.HTTP_400_BAD_REQUEST)
 
     gl_coords = get_position_of_gene_by_name(gene_name)
+    gl_coords['start_pos'] = int(gl_coords['start_pos']) - window_size
+    gl_coords['end_pos'] = int(gl_coords['end_pos']) + window_size
     if gl_coords is None: 
         return Response('Gene name not found in database.', 
                         status = status.HTTP_204_NO_CONTENT)
 
-    gl_coords['chromosome'] = gl_coords['chr']
     es_query = prepare_json_for_gl_query(gl_coords, pvalue)
+    print "es query for gene name search " + es_query
    
     from_result = request.data.get('from_result')
     es_result = requests.post(prepare_es_url('atsnp_output', from_result=from_result), 
@@ -338,6 +345,7 @@ def search_by_window_around_snpid(request):
         gl_coords['start_pos'] = 0
 
     es_query = prepare_json_for_gl_query(gl_coords, pvalue)
+    print "es query for snpid window search " + es_query
    
     from_result = request.data.get('from_result')
     es_result = requests.post(prepare_es_url('atsnp_output', from_result=from_result), 
