@@ -113,9 +113,13 @@ def scores_row_list(request):
     snpid_list = request.data['snpid_list']
     #chunked_snpid_list = chunk(snpid_list, 50) #TODO: parameterize chunk size somehow.
     from_result = request.data.get('from_result')
+    page_size = request.data.get('page_size')
+
     es_query = prepare_snpid_search_query_from_snpid_chunk(snpid_list, pval_rank)  
+    print "es query for scoresrow list:  " + str(es_query)
     es_result = requests.post(prepare_es_url('atsnp_output', 
-                              from_result=from_result),  data=es_query)
+                                             from_result=from_result,
+                                             page_size=page_size),  data=es_query)
 
     data_back = get_data_out_of_es_result(es_result)
     return return_any_hits(data_back)
@@ -195,12 +199,15 @@ def search_by_genomic_location(request):
 
     gl_coords = gl_coords_or_error_response
     from_result = request.data.get('from_result')
+    page_size = request.data.get('page_size')
 
     # The following code was copied into the bottom of search_by_snpid_window
     # TODO: consider DRYing up this part of the code
     es_query = prepare_json_for_gl_query(gl_coords, pvalue)
     es_result = requests.post(
-                         prepare_es_url('atsnp_output', from_result=from_result),
+                         prepare_es_url('atsnp_output', 
+                                        from_result=from_result,
+                                        page_size=page_size),
                          data=es_query)
     data_back = get_data_out_of_es_result(es_result)
     return return_any_hits(data_back)
@@ -287,6 +294,7 @@ def search_by_gene_name(request):
     gene_name = request.data.get('gene_name')
     window_size = request.data.get('window_size')
     pvalue = get_p_value(request)
+    page_size = request.data.get('page_size')
 
     if window_size is None:
         window_size = 0
@@ -294,6 +302,8 @@ def search_by_gene_name(request):
     if gene_name is None:
         return Response('No gene name specified.', 
                         status = status.HTTP_400_BAD_REQUEST)
+
+    page_size = request.data.get('page_size')
 
     gl_coords = get_position_of_gene_by_name(gene_name)
 
@@ -309,7 +319,9 @@ def search_by_gene_name(request):
     print "es query for gene name search " + es_query
    
     from_result = request.data.get('from_result')
-    es_result = requests.post(prepare_es_url('atsnp_output', from_result=from_result), 
+    es_result = requests.post(prepare_es_url('atsnp_output', 
+                                             from_result=from_result,
+                                             page_size=page_size), 
                               data=es_query)
     data_back  = get_data_out_of_es_result(es_result)
     return return_any_hits(data_back)
@@ -321,6 +333,7 @@ def search_by_window_around_snpid(request):
     one_snpid = request.data.get('snpid')
     window_size = request.data.get('window_size')
     pvalue = get_p_value(request)
+    page_size = request.data.get('page_size')
 
     if window_size is None:
         window_size = 0
@@ -351,7 +364,7 @@ def search_by_window_around_snpid(request):
     print "es query for snpid window search " + es_query
    
     from_result = request.data.get('from_result')
-    es_result = requests.post(prepare_es_url('atsnp_output', from_result=from_result), 
+    es_result = requests.post(prepare_es_url('atsnp_output', from_result=from_result, page_size=page_size), 
                               data=es_query)
     data_back = get_data_out_of_es_result(es_result)
     return return_any_hits(data_back)
