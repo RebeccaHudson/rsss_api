@@ -280,11 +280,8 @@ def search_by_trans_factor(request):
     pvalue = get_p_value(request)
     es_url = prepare_es_url('atsnp_output', from_result=from_result, page_size=page_size)
 
-    print "tf library in request" + str(request.data.get('tf_library'))
-
     if  request.data.get('tf_library') == 'encode':
         return search_by_encode_trans_factor(request, es_url, pvalue)
-    print "API is trying to search by jaspar"
     #otherwise, go with the == 'jaspar' behavior previously implemented.
 
     motif_or_error_response = check_and_return_motif_value(request)
@@ -299,7 +296,6 @@ def search_by_trans_factor(request):
 
 #This is here to avoid reworking the logic in search_by_trans_factor
 def search_by_encode_trans_factor(request, es_url,  pvalue):
-    print "API is trying to search by ENCODE"
     motif_prefix = request.data.get('motif')
     es_query = prepare_json_for_encode_tf_query(motif_prefix, pvalue) 
     es_result = requests.post(es_url, data=es_query)
