@@ -63,7 +63,9 @@ def prepare_json_for_pvalue_filter(pvalue_rank):
 
 def prepare_json_for_sort():
     dict_for_sort = {
-                      "sort" : [ { "pval_rank" : { "order" : "asc" } } ]
+                      "sort" : [ { "pval_rank" : { "order" : "asc" } }, 
+                                 { "chr"       : { "order" : "asc" } },
+                                 { "pos"       : { "order" : "asc" } } ]
                     }
     return dict_for_sort
 
@@ -122,6 +124,7 @@ def scores_row_list(request):
                                              page_size=page_size),  data=es_query)
 
     data_back = get_data_out_of_es_result(es_result)
+    print "data back from es: " + str(data_back)
     return return_any_hits(data_back)
 
 def check_and_aggregate_gl_search_params(request):
@@ -247,6 +250,24 @@ def prepare_json_for_tf_query(motif_list, pval_rank):
     } 
     return json.dumps(j_dict)
 
+def prepare_json_for_encode_tf_query(encode_prefix, pval_rank):
+    pvalue_filter = prepare_json_for_pvalue_filter(pval_rank)
+    sort = prepare_json_for_sort()
+    j_dict={
+        "sort" : sort["sort"],
+        "query" : {
+            "bool" : {
+                 "must" : {
+                   "prefix" : {
+                       "motif" :   encode_prefix 
+                    }
+                   
+                  },
+                 "filter" : pvalue_filter["filter"]
+            } 
+        }
+    } 
+    return json.dumps(j_dict)
 
 
 #  Web interface translates motifs to transcription factors and vice-versa
@@ -254,31 +275,49 @@ def prepare_json_for_tf_query(motif_list, pval_rank):
 @api_view(['POST'])
 def search_by_trans_factor(request):
 
-    motif_or_error_response = check_and_return_motif_value(request)
-    if not type(motif_or_error_response) == list:
-        return motif_or_error_response   #it's an error response    
     from_result = request.data.get('from_result')
     page_size = request.data.get('page_size')
     pvalue = get_p_value(request)
-    motif_list = motif_or_error_response       # above established this is a motif. 
- 
     es_url = prepare_es_url('atsnp_output', from_result=from_result, page_size=page_size)
+
+    print "tf library in request" + str(request.data.get('tf_library'))
+
+    if  request.data.get('tf_library') == 'encode':
+        return search_by_encode_trans_factor(request, es_url, pvalue)
+    print "API is trying to search by jaspar"
+    #otherwise, go with the == 'jaspar' behavior previously implemented.
+
+    motif_or_error_response = check_and_return_motif_value(request)
+    if not type(motif_or_error_response) == list:
+        return motif_or_error_response   #it's an error response    
+
+    motif_list = motif_or_error_response       # above established this is a motif. 
     es_query = prepare_json_for_tf_query(motif_list, pvalue)
     es_result = requests.post(es_url, data=es_query)
     data_back = get_data_out_of_es_result(es_result)
     return return_any_hits(data_back)
 
+#This is here to avoid reworking the logic in search_by_trans_factor
+def search_by_encode_trans_factor(request, es_url,  pvalue):
+    print "API is trying to search by ENCODE"
+    motif_prefix = request.data.get('motif')
+    es_query = prepare_json_for_encode_tf_query(motif_prefix, pvalue) 
+    es_result = requests.post(es_url, data=es_query)
+    data_back = get_data_out_of_es_result(es_result)
+    return return_any_hits(data_back)
+
+
 
 def get_position_of_gene_by_name(gene_name):
     j_dict = { "query" : {
                    "match" : {
-                       "gene_name" : gene_name    
+                       "gene_symbol" : gene_name    
                    }
                 }
              } 
     json_query = json.dumps(j_dict)
     #print "query : " + json_query
-    es_result = requests.post(prepare_es_url('gene_names'), data=json_query) 
+    es_result = requests.post(prepare_es_url('gencode_gene_symbols'), data=json_query) 
     gene_coords = get_data_out_of_es_result(es_result)
     print "gene coords (should work ) : " + str(gene_coords)
     if gene_coords['hitcount'] == 0: 
