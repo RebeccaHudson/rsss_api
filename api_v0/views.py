@@ -10,6 +10,7 @@ from rest_framework.views import APIView
 from django.http import Http404
 from django.conf import settings
 from rest_framework import status 
+import signal
 import requests
 import re
 import json
@@ -88,20 +89,45 @@ def prepare_snpid_search_query_from_snpid_chunk(snpid_list, pvalue_rank):
     return json.dumps(query_dict) 
 
 
+
+
+
+#sometimes one of the ES urls is non-responsive.
+#detect and respond to this situation appropriately.
+def find_working_es_url():
+    found_working = False
+    i = 1 
+    #db-1 is broken for some reason; normally would start at 0
+    while found_working is False:
+        url_to_try = settings.ELASTICSEARCH_URLS[i] + '/_cluster/health?timeout=1s&pretty=true'
+        print "trying this url " + url_to_try
+        es_check_response = requests.get(url_to_try)  
+        print "url " + url_to_try + " es_check_response" + str(json.loads(es_check_response.text))
+        es_check_data = json.loads(es_check_response.text)
+        if es_check_data.get('error') is  None:
+            return settings.ELASTICSEARCH_URLS[i]
+        i += 1
+        if i > 2: 
+            return None
+
 #prepares elasticsearch urls
 #from result should just be passed in from whatever is using this API.
 #we'll have to ensure that any such user has sufficient information to do so.
 def prepare_es_url(data_type, operation="_search", from_result=None, 
                    page_size=None):
-     url = settings.ELASTICSEARCH_URL + "/atsnp_data/" \
-                                      + data_type      \
-                                      + "/" + operation
+     url_base = find_working_es_url()
+     if url_base == None:
+         return None
+     url = url_base     + "/atsnp_data/" \
+                        + data_type      \
+                        + "/" + operation
      if page_size is None:
          page_size  =   settings.ELASTICSEARCH_PAGE_SIZE
      url = url + "?size=" + str(page_size)
 
      if from_result is not None:
          url = url + "&from=" + str(from_result) 
+     url = url + "&timeout=3s"
      print "es_url : " + url
      return url
 
@@ -118,9 +144,14 @@ def scores_row_list(request):
     page_size = request.data.get('page_size')
 
     es_query = prepare_snpid_search_query_from_snpid_chunk(snpid_list, pval_rank)  
-    es_result = requests.post(prepare_es_url('atsnp_output', 
-                                             from_result=from_result,
-                                             page_size=page_size),  data=es_query)
+    es_url =prepare_es_url('atsnp_output',
+                                from_result=from_result,
+                                page_size=page_size)
+    if es_url is None:
+        return Response('Elasticsearch is down, please contact admins.', 
+                         status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    es_result = requests.post(es_url ,  data=es_query)
 
     data_back = get_data_out_of_es_result(es_result)
     return return_any_hits(data_back)
@@ -205,11 +236,14 @@ def search_by_genomic_location(request):
     # The following code was copied into the bottom of search_by_snpid_window
     # TODO: consider DRYing up this part of the code
     es_query = prepare_json_for_gl_query(gl_coords, pvalue)
-    es_result = requests.post(
-                         prepare_es_url('atsnp_output', 
-                                        from_result=from_result,
-                                        page_size=page_size),
-                         data=es_query)
+    es_url =  prepare_es_url('atsnp_output', 
+                            from_result=from_result,
+                            page_size=page_size)
+    if es_url is None: 
+        return Response('Elasticsearch is down, please contact admins.', 
+                         status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    es_result = requests.post( es_url , data=es_query)
     data_back = get_data_out_of_es_result(es_result)
     return return_any_hits(data_back)
 
@@ -256,7 +290,7 @@ def prepare_json_for_encode_tf_query(encode_prefix, pval_rank):
         "query" : {
             "bool" : {
                  "must" : {
-                   "prefix" : {
+                   "match_phrase_prefix" : {
                        "motif" :   encode_prefix 
                     }
                    
@@ -278,6 +312,10 @@ def search_by_trans_factor(request):
     pvalue = get_p_value(request)
     es_url = prepare_es_url('atsnp_output', from_result=from_result, page_size=page_size)
 
+    if es_url is None:
+        return Response('Elasticsearch is down, please contact admins.', 
+                         status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+  
     if  request.data.get('tf_library') == 'encode':
         return search_by_encode_trans_factor(request, es_url, pvalue)
     #otherwise, go with the == 'jaspar' behavior previously implemented.
@@ -297,6 +335,7 @@ def search_by_trans_factor(request):
 def search_by_encode_trans_factor(request, es_url,  pvalue):
     motif_prefix = request.data.get('motif')
     es_query = prepare_json_for_encode_tf_query(motif_prefix, pvalue) 
+    print "query for encode TF : " + es_query
     es_result = requests.post(es_url, data=es_query)
     data_back = get_data_out_of_es_result(es_result)
     return return_any_hits(data_back)
@@ -311,8 +350,10 @@ def get_position_of_gene_by_name(gene_name):
                 }
              } 
     json_query = json.dumps(j_dict)
+
+    es_url = prepare_es_url('gencode_gene_symbols') 
     #print "query : " + json_query
-    es_result = requests.post(prepare_es_url('gencode_gene_symbols'), data=json_query) 
+    es_result = requests.post(es_url, data=json_query) 
     gene_coords = get_data_out_of_es_result(es_result)
     if gene_coords['hitcount'] == 0: 
          return None
@@ -322,6 +363,8 @@ def get_position_of_gene_by_name(gene_name):
                   'end_pos'   : gc['end_pos']     }
     return gl_coords 
      
+
+
 @api_view(['POST'])
 def search_by_gene_name(request):
     gene_name = request.data.get('gene_name')
@@ -337,26 +380,29 @@ def search_by_gene_name(request):
                         status = status.HTTP_400_BAD_REQUEST)
 
     page_size = request.data.get('page_size')
+    from_result = request.data.get('from_result')
+    es_url = prepare_es_url('atsnp_output', 
+                            from_result=from_result,
+                            page_size=page_size)
+    #if es is down, find out now and report the error from here
+    if es_url is None:
+        return Response('Elasticsearch is down, please contact admins.', 
+                         status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
     gl_coords = get_position_of_gene_by_name(gene_name)
-
     if gl_coords is None: 
         return Response('Gene name not found in database.', 
                         status = status.HTTP_400_BAD_REQUEST)
-
     #print "continued gene name search after Respnose.."
     gl_coords['start_pos'] = int(gl_coords['start_pos']) - window_size
     gl_coords['end_pos'] = int(gl_coords['end_pos']) + window_size
 
-
     es_query = prepare_json_for_gl_query(gl_coords, pvalue)
     #print "es query for gene name search " + es_query
    
-    from_result = request.data.get('from_result')
-    es_result = requests.post(prepare_es_url('atsnp_output', 
-                                             from_result=from_result,
-                                             page_size=page_size), 
-                              data=es_query)
+
+    es_result = requests.post( es_url, data=es_query)
     data_back  = get_data_out_of_es_result(es_result)
     return return_any_hits(data_back)
 
@@ -376,9 +422,16 @@ def search_by_window_around_snpid(request):
         return Response('No snpid specified.', 
                          status = status.HTTP_400_BAD_REQUEST)
 
+
+    es_url = prepare_es_url('atsnp_output') 
+    #if elasticsearch is down, find out now. 
+    if es_url is None:
+        return Response('Elasticsearch is down, please contact admins.', 
+                         status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
     query_for_snpid_location = {"query":{"match":{"snpid":one_snpid }}}
     es_query = json.dumps(query_for_snpid_location)
-    es_result = requests.post(prepare_es_url('atsnp_output'), data=es_query)
+    es_result = requests.post(es_url, data=es_query)
     records_for_snpid = get_data_out_of_es_result(es_result)
 
     if len(records_for_snpid['data']) == 0: 
@@ -398,8 +451,7 @@ def search_by_window_around_snpid(request):
     print "es query for snpid window search " + es_query
    
     from_result = request.data.get('from_result')
-    es_result = requests.post(prepare_es_url('atsnp_output', from_result=from_result, page_size=page_size), 
-                              data=es_query)
+    es_result = requests.post(es_url, data=es_query)
     data_back = get_data_out_of_es_result(es_result)
     return return_any_hits(data_back)
 
