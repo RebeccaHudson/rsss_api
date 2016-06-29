@@ -124,7 +124,8 @@ DATABASES = {
 # https://docs.djangoproject.com/en/1.9/ref/settings/#auth-password-validators
 
 #ELASTICSEARCH_URL='http://quasar-19:9200'
-ELASTICSEARCH_URL='http://atsnp-db2.biostat.wisc.edu:9200'
+ELASTICSEARCH_URL='http://atsnp-db1.biostat.wisc.edu:9200'
+ELASTICSEARCH_URLS = [ 'http://atsnp-db'+ str(x) +'.biostat.wisc.edu:9200' for x in range(1,4) ]
 ELASTICSEARCH_PAGE_SIZE = 50  # this should be pretty large, ultimately.
 
 AUTH_PASSWORD_VALIDATORS = [
