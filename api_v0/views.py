@@ -118,13 +118,11 @@ def scores_row_list(request):
     page_size = request.data.get('page_size')
 
     es_query = prepare_snpid_search_query_from_snpid_chunk(snpid_list, pval_rank)  
-    print "es query for scoresrow list:  " + str(es_query)
     es_result = requests.post(prepare_es_url('atsnp_output', 
                                              from_result=from_result,
                                              page_size=page_size),  data=es_query)
 
     data_back = get_data_out_of_es_result(es_result)
-    print "data back from es: " + str(data_back)
     return return_any_hits(data_back)
 
 def check_and_aggregate_gl_search_params(request):
@@ -294,6 +292,7 @@ def search_by_trans_factor(request):
     data_back = get_data_out_of_es_result(es_result)
     return return_any_hits(data_back)
 
+
 #This is here to avoid reworking the logic in search_by_trans_factor
 def search_by_encode_trans_factor(request, es_url,  pvalue):
     motif_prefix = request.data.get('motif')
@@ -315,7 +314,6 @@ def get_position_of_gene_by_name(gene_name):
     #print "query : " + json_query
     es_result = requests.post(prepare_es_url('gencode_gene_symbols'), data=json_query) 
     gene_coords = get_data_out_of_es_result(es_result)
-    print "gene coords (should work ) : " + str(gene_coords)
     if gene_coords['hitcount'] == 0: 
          return None
     gc = gene_coords['data'][0]
@@ -344,14 +342,15 @@ def search_by_gene_name(request):
 
     if gl_coords is None: 
         return Response('Gene name not found in database.', 
-                        status = status.HTTP_204_NO_CONTENT)
+                        status = status.HTTP_400_BAD_REQUEST)
 
+    #print "continued gene name search after Respnose.."
     gl_coords['start_pos'] = int(gl_coords['start_pos']) - window_size
     gl_coords['end_pos'] = int(gl_coords['end_pos']) + window_size
 
 
     es_query = prepare_json_for_gl_query(gl_coords, pvalue)
-    print "es query for gene name search " + es_query
+    #print "es query for gene name search " + es_query
    
     from_result = request.data.get('from_result')
     es_result = requests.post(prepare_es_url('atsnp_output', 
