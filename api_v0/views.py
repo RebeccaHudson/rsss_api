@@ -96,15 +96,19 @@ def prepare_snpid_search_query_from_snpid_chunk(snpid_list, pvalue_rank):
 #detect and respond to this situation appropriately.
 def find_working_es_url():
     found_working = False
-    i = 1 
+    i = 0 
     #db-1 is broken for some reason; normally would start at 0
     while found_working is False:
-        url_to_try = settings.ELASTICSEARCH_URLS[i] + '/_cluster/health?timeout=1s&pretty=true'
+        url_to_try = settings.ELASTICSEARCH_URLS[i] + '/atsnp_data/atsnp_output/_search?size=1'
         print "trying this url " + url_to_try
-        es_check_response = requests.get(url_to_try)  
-        print "url " + url_to_try + " es_check_response" + str(json.loads(es_check_response.text))
-        es_check_data = json.loads(es_check_response.text)
-        if es_check_data.get('error') is  None:
+        es_check_response = None
+        try:
+            es_check_response = requests.get(url_to_try, timeout=18)  
+        except requests.exceptions.Timeout:
+            print "request for search at : " + url_to_try +  " timed out."  
+        else:        
+            print "url " + url_to_try + " es_check_response" + str(json.loads(es_check_response.text))
+            es_check_data = json.loads(es_check_response.text)
             return settings.ELASTICSEARCH_URLS[i]
         i += 1
         if i > 2: 
@@ -127,7 +131,6 @@ def prepare_es_url(data_type, operation="_search", from_result=None,
 
      if from_result is not None:
          url = url + "&from=" + str(from_result) 
-     url = url + "&timeout=3s"
      print "es_url : " + url
      return url
 
@@ -150,8 +153,11 @@ def scores_row_list(request):
     if es_url is None:
         return Response('Elasticsearch is down, please contact admins.', 
                          status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-    es_result = requests.post(es_url ,  data=es_query, timeout=15)
+    try:
+        es_result = requests.post(es_url ,  data=es_query, timeout=15)
+    except requests.exceptions.Timeout:
+        return Response('Elasticsearch timed out. Contact admins.',
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     data_back = get_data_out_of_es_result(es_result)
     return return_any_hits(data_back)
@@ -242,8 +248,12 @@ def search_by_genomic_location(request):
     if es_url is None: 
         return Response('Elasticsearch is down, please contact admins.', 
                          status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-    es_result = requests.post( es_url , data=es_query, timeout=15)
+    try:
+        es_result = requests.post( es_url , data=es_query, timeout=30)
+    except requests.exceptions.Timeout:
+        return Response('Elasticsearch timed out. Contact admins.',
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
     data_back = get_data_out_of_es_result(es_result)
     return return_any_hits(data_back)
 
@@ -326,7 +336,12 @@ def search_by_trans_factor(request):
 
     motif_list = motif_or_error_response       # above established this is a motif. 
     es_query = prepare_json_for_tf_query(motif_list, pvalue)
-    es_result = requests.post(es_url, data=es_query, timeout=15)
+
+    try:
+        es_result = requests.post(es_url, data=es_query, timeout=30)
+    except requests.exceptions.Timeout:
+        return Response('Elasticsearch timed out. Contact admins.',
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     data_back = get_data_out_of_es_result(es_result)
     return return_any_hits(data_back)
 
@@ -336,7 +351,11 @@ def search_by_encode_trans_factor(request, es_url,  pvalue):
     motif_prefix = request.data.get('motif')
     es_query = prepare_json_for_encode_tf_query(motif_prefix, pvalue) 
     print "query for encode TF : " + es_query
-    es_result = requests.post(es_url, data=es_query, timeout=15)
+    try:
+        es_result = requests.post(es_url, data=es_query, timeout=30)
+    except requests.exceptions.Timeout:
+        return Response('Elasticsearch timed out. Contact admins.',
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     data_back = get_data_out_of_es_result(es_result)
     return return_any_hits(data_back)
 
@@ -401,8 +420,12 @@ def search_by_gene_name(request):
     es_query = prepare_json_for_gl_query(gl_coords, pvalue)
     #print "es query for gene name search " + es_query
    
+    try:
+        es_result = requests.post( es_url, data=es_query, timeout=15)
+    except requests.exceptions.Timeout:
+        return Response('Elasticsearch timed out. Contact admins.',
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    es_result = requests.post( es_url, data=es_query, timeout=15)
     data_back  = get_data_out_of_es_result(es_result)
     return return_any_hits(data_back)
 
@@ -451,7 +474,12 @@ def search_by_window_around_snpid(request):
     print "es query for snpid window search " + es_query
    
     from_result = request.data.get('from_result')
-    es_result = requests.post(es_url, data=es_query, timeout=15)
+    try:
+        es_result = requests.post(es_url, data=es_query, timeout=30)
+    except requests.exceptions.Timeout:
+        return Response('Elasticsearch timed out. Contact admins.',
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
     data_back = get_data_out_of_es_result(es_result)
     return return_any_hits(data_back)
 
