@@ -151,7 +151,7 @@ def scores_row_list(request):
         return Response('Elasticsearch is down, please contact admins.', 
                          status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    es_result = requests.post(es_url ,  data=es_query)
+    es_result = requests.post(es_url ,  data=es_query, timeout=15)
 
     data_back = get_data_out_of_es_result(es_result)
     return return_any_hits(data_back)
@@ -243,7 +243,7 @@ def search_by_genomic_location(request):
         return Response('Elasticsearch is down, please contact admins.', 
                          status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    es_result = requests.post( es_url , data=es_query)
+    es_result = requests.post( es_url , data=es_query, timeout=15)
     data_back = get_data_out_of_es_result(es_result)
     return return_any_hits(data_back)
 
@@ -326,7 +326,7 @@ def search_by_trans_factor(request):
 
     motif_list = motif_or_error_response       # above established this is a motif. 
     es_query = prepare_json_for_tf_query(motif_list, pvalue)
-    es_result = requests.post(es_url, data=es_query)
+    es_result = requests.post(es_url, data=es_query, timeout=15)
     data_back = get_data_out_of_es_result(es_result)
     return return_any_hits(data_back)
 
@@ -336,7 +336,7 @@ def search_by_encode_trans_factor(request, es_url,  pvalue):
     motif_prefix = request.data.get('motif')
     es_query = prepare_json_for_encode_tf_query(motif_prefix, pvalue) 
     print "query for encode TF : " + es_query
-    es_result = requests.post(es_url, data=es_query)
+    es_result = requests.post(es_url, data=es_query, timeout=15)
     data_back = get_data_out_of_es_result(es_result)
     return return_any_hits(data_back)
 
@@ -353,7 +353,7 @@ def get_position_of_gene_by_name(gene_name):
 
     es_url = prepare_es_url('gencode_gene_symbols') 
     #print "query : " + json_query
-    es_result = requests.post(es_url, data=json_query) 
+    es_result = requests.post(es_url, data=json_query, timeout=15) 
     gene_coords = get_data_out_of_es_result(es_result)
     if gene_coords['hitcount'] == 0: 
          return None
@@ -402,7 +402,7 @@ def search_by_gene_name(request):
     #print "es query for gene name search " + es_query
    
 
-    es_result = requests.post( es_url, data=es_query)
+    es_result = requests.post( es_url, data=es_query, timeout=15)
     data_back  = get_data_out_of_es_result(es_result)
     return return_any_hits(data_back)
 
@@ -431,7 +431,7 @@ def search_by_window_around_snpid(request):
 
     query_for_snpid_location = {"query":{"match":{"snpid":one_snpid }}}
     es_query = json.dumps(query_for_snpid_location)
-    es_result = requests.post(es_url, data=es_query)
+    es_result = requests.post(es_url, data=es_query, timeout=15)
     records_for_snpid = get_data_out_of_es_result(es_result)
 
     if len(records_for_snpid['data']) == 0: 
@@ -451,7 +451,7 @@ def search_by_window_around_snpid(request):
     print "es query for snpid window search " + es_query
    
     from_result = request.data.get('from_result')
-    es_result = requests.post(es_url, data=es_query)
+    es_result = requests.post(es_url, data=es_query, timeout=15)
     data_back = get_data_out_of_es_result(es_result)
     return return_any_hits(data_back)
 
