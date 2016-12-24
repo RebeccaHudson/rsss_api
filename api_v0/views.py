@@ -85,7 +85,7 @@ def prepare_snpid_search_query_from_snpid_chunk(snpid_list, pvalue_rank):
         }
       }
     }
-    #print("query " + json.dumps(query_dict) )
+    print("query " + json.dumps(query_dict) )
     return json.dumps(query_dict) 
 
 
@@ -103,11 +103,12 @@ def find_working_es_url():
         print "trying this url " + url_to_try
         es_check_response = None
         try:
-            es_check_response = requests.get(url_to_try, timeout=18)  
+            es_check_response = requests.get(url_to_try, timeout=30)  
         except requests.exceptions.Timeout:
             print "request for search at : " + url_to_try +  " timed out."  
         else:        
             print "url " + url_to_try + " es_check_response" + str(json.loads(es_check_response.text))
+            print "This URL is supposed to work"
             es_check_data = json.loads(es_check_response.text)
             return settings.ELASTICSEARCH_URLS[i]
         i += 1
@@ -154,7 +155,8 @@ def scores_row_list(request):
         return Response('Elasticsearch is down, please contact admins.', 
                          status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     try:
-        es_result = requests.post(es_url ,  data=es_query, timeout=15)
+        es_result = requests.post(es_url ,  data=es_query, timeout=100)
+        print "Successful search, without timeout that is."
     except requests.exceptions.Timeout:
         return Response('Elasticsearch timed out. Contact admins.',
                         status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -222,6 +224,7 @@ def return_any_hits(data_returned):
 
     serializer = ScoresRowSerializer(data_returned['data'], many = True)
     data_returned['data'] = serializer.data
+    print "called return any hits..."
     return Response(data_returned, status=status.HTTP_200_OK)
 
 @api_view(['POST'])
