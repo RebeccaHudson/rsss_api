@@ -183,6 +183,30 @@ def check_and_aggregate_gl_search_params(request):
                        status=status.HTTP_400_BAD_REQUEST)
     return gl_coords
 
+#def prepare_json_for_gl_query(gl_coords, pval_rank):
+#    pvalue_filter = prepare_json_for_pvalue_filter(pval_rank)
+#    sort = prepare_json_for_sort()
+#    j_dict = {   
+#        "sort" : sort["sort"], 
+#        "query":
+#        {
+#            "bool" : {
+#                "must" : [
+#                   {
+#                     "range": {
+#                          "pos" : {  "from" : gl_coords['start_pos'], "to" : gl_coords['end_pos'] }
+#                      }
+#                   },
+#                   { "term" : { "chr" : gl_coords['chromosome'] } }
+#                ],
+#                "filter":  pvalue_filter["filter"]
+#            }
+#        }
+#    }
+#    json_out = json.dumps(j_dict)
+#    return json_out
+
+#try to use 'filter' queries to speed this up.
 def prepare_json_for_gl_query(gl_coords, pval_rank):
     pvalue_filter = prepare_json_for_pvalue_filter(pval_rank)
     sort = prepare_json_for_sort()
@@ -203,9 +227,10 @@ def prepare_json_for_gl_query(gl_coords, pval_rank):
             }
         }
     }
+    #j_dict = { "filtered" : j_dict }
+    #j_dict = { "query" : j_dict }
     json_out = json.dumps(j_dict)
     return json_out
-
 
 def return_any_hits(data_returned):
     if data_returned['hitcount'] == 0:
@@ -216,11 +241,11 @@ def return_any_hits(data_returned):
                       status=status.HTTP_204_NO_CONTENT)
 
     #this is very rough, maybe there is a better solution
-    for one_row in data_returned['data']:
-        if one_row.get('plot_available') is not None:
-            one_row['has_plot'] = True
-        else: 
-            one_row['has_plot'] = False
+    #for one_row in data_returned['data']:
+    #    if one_row.get('plot_available') is not None:
+    #        one_row['has_plot'] = True
+    #    else: 
+    #        one_row['has_plot'] = False
 
     serializer = ScoresRowSerializer(data_returned['data'], many = True)
     data_returned['data'] = serializer.data
@@ -252,7 +277,7 @@ def search_by_genomic_location(request):
         return Response('Elasticsearch is down, please contact admins.', 
                          status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     try:
-        es_result = requests.post( es_url , data=es_query, timeout=30)
+        es_result = requests.post( es_url , data=es_query, timeout=100)
     except requests.exceptions.Timeout:
         return Response('Elasticsearch timed out. Contact admins.',
                         status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -341,7 +366,7 @@ def search_by_trans_factor(request):
     es_query = prepare_json_for_tf_query(motif_list, pvalue)
 
     try:
-        es_result = requests.post(es_url, data=es_query, timeout=30)
+        es_result = requests.post(es_url, data=es_query, timeout=100)
     except requests.exceptions.Timeout:
         return Response('Elasticsearch timed out. Contact admins.',
                         status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -355,7 +380,7 @@ def search_by_encode_trans_factor(request, es_url,  pvalue):
     es_query = prepare_json_for_encode_tf_query(motif_prefix, pvalue) 
     print "query for encode TF : " + es_query
     try:
-        es_result = requests.post(es_url, data=es_query, timeout=30)
+        es_result = requests.post(es_url, data=es_query, timeout=100)
     except requests.exceptions.Timeout:
         return Response('Elasticsearch timed out. Contact admins.',
                         status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -375,7 +400,7 @@ def get_position_of_gene_by_name(gene_name):
 
     es_url = prepare_es_url('gencode_gene_symbols') 
     #print "query : " + json_query
-    es_result = requests.post(es_url, data=json_query, timeout=15) 
+    es_result = requests.post(es_url, data=json_query, timeout=50) 
     gene_coords = get_data_out_of_es_result(es_result)
     if gene_coords['hitcount'] == 0: 
          return None
@@ -424,7 +449,7 @@ def search_by_gene_name(request):
     #print "es query for gene name search " + es_query
    
     try:
-        es_result = requests.post( es_url, data=es_query, timeout=15)
+        es_result = requests.post( es_url, data=es_query, timeout=100)
     except requests.exceptions.Timeout:
         return Response('Elasticsearch timed out. Contact admins.',
                         status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -457,7 +482,7 @@ def search_by_window_around_snpid(request):
 
     query_for_snpid_location = {"query":{"match":{"snpid":one_snpid }}}
     es_query = json.dumps(query_for_snpid_location)
-    es_result = requests.post(es_url, data=es_query, timeout=15)
+    es_result = requests.post(es_url, data=es_query, timeout=100)
     records_for_snpid = get_data_out_of_es_result(es_result)
 
     if len(records_for_snpid['data']) == 0: 
@@ -478,7 +503,7 @@ def search_by_window_around_snpid(request):
    
     from_result = request.data.get('from_result')
     try:
-        es_result = requests.post(es_url, data=es_query, timeout=30)
+        es_result = requests.post(es_url, data=es_query, timeout=100)
     except requests.exceptions.Timeout:
         return Response('Elasticsearch timed out. Contact admins.',
                         status=status.HTTP_500_INTERNAL_SERVER_ERROR)

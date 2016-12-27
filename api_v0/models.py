@@ -29,6 +29,10 @@ class ScoresRow(models.Model):
   pval_rank = models.FloatField() 
   chr = models.CharField(max_length=10)
   pos = models.IntegerField()
-  has_plot = models.BooleanField()
+  snp_aug_match_seq = models.CharField(max_length=100)
+  snp_extra_pwm_off = models.IntegerField() 
+  ref_aug_match_seq =  models.CharField(max_length=100)
+  ref_extra_pwm_off =  models.IntegerField() 
+
   class Meta:
     managed = False
