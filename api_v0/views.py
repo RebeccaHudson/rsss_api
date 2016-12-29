@@ -97,7 +97,6 @@ def prepare_snpid_search_query_from_snpid_chunk(snpid_list, pvalue_rank):
 def find_working_es_url():
     found_working = False
     i = 0 
-    #db-1 is broken for some reason; normally would start at 0
     while found_working is False:
         url_to_try = settings.ELASTICSEARCH_URLS[i] + '/atsnp_data/atsnp_output/_search?size=1'
         print "trying this url " + url_to_try
@@ -106,9 +105,10 @@ def find_working_es_url():
             es_check_response = requests.get(url_to_try, timeout=30)  
         except requests.exceptions.Timeout:
             print "request for search at : " + url_to_try +  " timed out."  
+        except requests.exceptions.ConnectionError:
+            print "request for " + url_to_try + " has been refused"
         else:        
             print "url " + url_to_try + " es_check_response" + str(json.loads(es_check_response.text))
-            print "This URL is supposed to work"
             es_check_data = json.loads(es_check_response.text)
             return settings.ELASTICSEARCH_URLS[i]
         i += 1
@@ -118,6 +118,10 @@ def find_working_es_url():
 #prepares elasticsearch urls
 #from result should just be passed in from whatever is using this API.
 #we'll have to ensure that any such user has sufficient information to do so.
+
+
+#TODO: Make this not place unneeded requests on ES. Only hit > 1 URL
+#if a connection is rejected / times out
 def prepare_es_url(data_type, operation="_search", from_result=None, 
                    page_size=None):
      url_base = find_working_es_url()
@@ -239,13 +243,6 @@ def return_any_hits(data_returned):
         return Response('Done paging all ' + \
                       str(data_returned['hitcount']) + 'results.',
                       status=status.HTTP_204_NO_CONTENT)
-
-    #this is very rough, maybe there is a better solution
-    #for one_row in data_returned['data']:
-    #    if one_row.get('plot_available') is not None:
-    #        one_row['has_plot'] = True
-    #    else: 
-    #        one_row['has_plot'] = False
 
     serializer = ScoresRowSerializer(data_returned['data'], many = True)
     data_returned['data'] = serializer.data
