@@ -16,7 +16,6 @@ import re
 import json
 import random
 
-# TODO: add an actual window size to each of the window-range searches.
 
 
 def chunk(input, size):
@@ -160,7 +159,7 @@ def setup_es_url(data_type, url_base, operation="_search",
 
 #a refactor of scrores_row_list
 @api_view(['POST'])
-def alternate_search_by_snpid(request):
+def search_by_snpid(request):
     #print str(request.data)  #expect this to be a list of quoted strings...
     pval_rank = get_p_value(request) 
     snpid_list = request.data['snpid_list']
@@ -233,7 +232,7 @@ def return_any_hits(data_returned):
 
 #refactor this one first.
 @api_view(['POST'])
-def alternate_search_by_genomic_location(request):
+def search_by_genomic_location(request):
     #TODO: completely remove 'GL chunk size' this is here because I was trying
     # to use Cassandra for this.
     gl_coords_or_error_response = check_and_aggregate_gl_search_params(request)
@@ -347,7 +346,7 @@ def prepare_json_for_encode_tf_query(encode_prefix, pval_rank):
 #  Web interface translates motifs to transcription factors and vice-versa
 #  this API expects motif values. 
 @api_view(['POST'])
-def alternate_search_by_trans_factor(request):
+def search_by_trans_factor(request):
     pvalue = get_p_value(request)
 
     #If we're suppsoed to check for a valid ENCODE motif, we'll see the flag:
@@ -408,7 +407,7 @@ def get_position_of_gene_by_name(gene_name):
 
 
 @api_view(['POST'])
-def alternate_search_by_gene_name(request):
+def search_by_gene_name(request):
     gene_name = request.data.get('gene_name')
     window_size = request.data.get('window_size')
     pvalue = get_p_value(request)
@@ -438,7 +437,7 @@ def alternate_search_by_gene_name(request):
 
 
 @api_view(['POST'])
-def alternate_search_by_window_around_snpid(request):
+def search_by_window_around_snpid(request):
     one_snpid = request.data.get('snpid')
     window_size = request.data.get('window_size')
     pvalue = get_p_value(request)
