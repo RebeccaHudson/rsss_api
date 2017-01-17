@@ -330,6 +330,14 @@ def alternate_search_by_genomic_location(request):
     return query_elasticsearch(es_query, es_params)
 
 
+
+
+
+
+
+
+
+
 #TODO: factor this out into a 'helper' file, it's not strictly a view.
 #es_params is a dict with from_result and page_size
 #TODO: add a standard parametrized elasticsearch timeout from settings.
@@ -453,6 +461,32 @@ def search_by_trans_factor(request):
     return return_any_hits(data_back)
 
 
+#  Web interface translates motifs to transcription factors and vice-versa
+#  this API expects motif values. 
+@api_view(['POST'])
+def alternate_search_by_trans_factor(request):
+    pvalue = get_p_value(request)
+
+    #If we're suppsoed to check for a valid ENCODE motif, we'll see the flag:
+    #    request.data.get('tf_library') == 'encode':
+    #    return search_by_encode_trans_factor(request, es_url, pvalue)
+
+    #currently specific to JASPAR.
+    motif_or_error_response = check_and_return_motif_value(request)
+    if not type(motif_or_error_response) == list:
+        return motif_or_error_response   #it's an error response    
+
+    motif_list = motif_or_error_response       # above established this is a motif. 
+    es_query = prepare_json_for_tf_query(motif_list, pvalue)
+    
+    es_params = { 'from_result' : request.data.get('from_result'),
+                  'page_size' : request.data.get('page_size') }
+    return query_elasticsearch(es_query, es_params)
+
+
+
+#There is no ENCODE data right now...
+#TODO: thorough testing with actual ENCODE data.
 #This is here to avoid reworking the logic in search_by_trans_factor
 def search_by_encode_trans_factor(request, es_url,  pvalue):
     motif_prefix = request.data.get('motif')
@@ -476,7 +510,6 @@ def get_position_of_gene_by_name(gene_name):
                 }
              } 
     json_query = json.dumps(j_dict)
-
     es_url = prepare_es_url('gencode_gene_symbols') 
     #print "query : " + json_query
     es_result = requests.post(es_url, data=json_query, timeout=50) 
@@ -490,13 +523,12 @@ def get_position_of_gene_by_name(gene_name):
     return gl_coords 
      
 
-
+#TODO: keep this here till I can test the refactor.
 @api_view(['POST'])
 def search_by_gene_name(request):
     gene_name = request.data.get('gene_name')
     window_size = request.data.get('window_size')
     pvalue = get_p_value(request)
-    page_size = request.data.get('page_size')
 
     if window_size is None:
         window_size = 0
@@ -504,9 +536,8 @@ def search_by_gene_name(request):
     if gene_name is None:
         return Response('No gene name specified.', 
                         status = status.HTTP_400_BAD_REQUEST)
-
-    page_size = request.data.get('page_size')
-    from_result = request.data.get('from_result')
+    page_size =  request.data.get('page_size')
+    from_result =  request.data.get('from_result')
     es_url = prepare_es_url('atsnp_output', 
                             from_result=from_result,
                             page_size=page_size)
@@ -536,6 +567,35 @@ def search_by_gene_name(request):
     data_back  = get_data_out_of_es_result(es_result)
     return return_any_hits(data_back)
 
+#TODO: test this properly.
+@api_view(['POST'])
+def alternate_search_by_gene_name(request):
+    gene_name = request.data.get('gene_name')
+    window_size = request.data.get('window_size')
+    pvalue = get_p_value(request)
+
+    if window_size is None:
+        window_size = 0
+
+    if gene_name is None:
+        return Response('No gene name specified.', 
+                        status = status.HTTP_400_BAD_REQUEST)
+
+    es_params = {   'page_size' :   request.data.get('page_size'),
+                    'from_result' : request.data.get('from_result') }
+
+    #TODO: refactor the way that this checks for gene names in ES.
+    gl_coords = get_position_of_gene_by_name(gene_name)
+    if gl_coords is None: 
+        return Response('Gene name not found in database.', 
+                        status = status.HTTP_400_BAD_REQUEST)
+    #print "continued gene name search after Respnose.."
+
+    gl_coords['start_pos'] = int(gl_coords['start_pos']) - window_size
+    gl_coords['end_pos'] = int(gl_coords['end_pos']) + window_size
+
+    es_query = prepare_json_for_gl_query(gl_coords, pvalue)
+    return query_elasticsearch(es_query, es_params)
 
 @api_view(['POST'])
 def search_by_window_around_snpid(request):
@@ -599,22 +659,53 @@ def search_by_window_around_snpid(request):
 # TODO: revive the plotting code!!
 
 @api_view(['POST'])
-def get_plotting_data_for_snpid(request):
-    pass
-    #the plotting data will not have pvalues on it...
-    # TODO probably change this to include the motif in the lookup?
-    #snpid_requested = request.data.get('snpid')
-    #if snpid_requested is None:
-    #    return Response('No snpid specified.', 
-    #                      status = status.HTTP_400_BAD_REQUEST) 
-    #snpid_requested = snpid_requested.encode('ascii')
-    #cql = 'select * from '                                    +\
-    #settings.CASSANDRA_TABLE_NAMES['TABLE_FOR_PLOTTING_DATA'] +\
-    #' where snpid = ' + repr(snpid_requested)+';'
-    #cursor = connection.cursor()
-    #location_of_gene = cursor.execute(cql).current_rows
-    #return location_of_gene    #TODO: handle the case where a non-existing gene is specified.
-    #chromosome = location_of_gene['chr']
-    #start_pos = location_of_gene['start_pos']
-    #end_pos = locatoin_of_gene['end_pos']   
-     
+def alternate_search_by_window_around_snpid(request):
+    one_snpid = request.data.get('snpid')
+    window_size = request.data.get('window_size')
+    pvalue = get_p_value(request)
+
+
+
+    if window_size is None:
+        window_size = 0
+ 
+    if one_snpid is None: 
+        return Response('No snpid specified.', 
+                         status = status.HTTP_400_BAD_REQUEST)
+
+    #This URL is for looking up the genomic location of a SNPid. 
+    #has to be re-prepared for pageable search.
+    es_url = prepare_es_url('atsnp_output') 
+
+    #if elasticsearch is down, find out now. 
+    if es_url is None:
+        return Response('Elasticsearch is down, please contact admins.', 
+                         status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    query_for_snpid_location = {"query":{"match":{"snpid":one_snpid }}}
+    es_query = json.dumps(query_for_snpid_location)
+    es_result = requests.post(es_url, data=es_query, timeout=100)
+    records_for_snpid = get_data_out_of_es_result(es_result)
+
+    if len(records_for_snpid['data']) == 0: 
+        return Response('No data for snpid ' + one_snpid + '.', 
+                        status = status.HTTP_204_NO_CONTENT)
+
+    record_to_pick = records_for_snpid['data'][0]
+    gl_coords = { 'chromosome' :  record_to_pick['chr'],
+                  'start_pos'  :  record_to_pick['pos'] - window_size,
+                  'end_pos'    :  record_to_pick['pos'] + window_size
+                 }
+    if gl_coords['start_pos'] < 0:
+        #: TODO consider adding a warning here if this happens?
+        gl_coords['start_pos'] = 0
+
+    es_query = prepare_json_for_gl_query(gl_coords, pvalue)
+    #print "es query for snpid window search " + es_query
+   
+    es_params = { 'page_size' : request.data.get('page_size'),
+                  'from_result' : request.data.get('from_result') }
+    #This probably isn't the right place to put the from result
+    return query_elasticsearch(es_query, es_params)
+
+
