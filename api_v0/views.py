@@ -14,7 +14,7 @@ import signal
 import requests
 import re
 import json
-
+import random
 
 # TODO: add an actual window size to each of the window-range searches.
 
@@ -98,17 +98,19 @@ def find_working_es_url():
     found_working = False
     i = 0 
     while found_working is False:
-        url_to_try = settings.ELASTICSEARCH_URLS[i] + '/atsnp_data/atsnp_output/_search?size=1'
+        #TODO: change back to main data store. (atsnp_data_tiny -> atsnp_data)
+        url_to_try = settings.ELASTICSEARCH_URLS[i] + \
+                      '/atsnp_data_tiny/atsnp_output/_search?size=1'
         print "trying this url " + url_to_try
         es_check_response = None
         try:
-            es_check_response = requests.get(url_to_try, timeout=30)  
+            es_check_response = requests.get(url_to_try, timeout=300)  
         except requests.exceptions.Timeout:
             print "request for search at : " + url_to_try +  " timed out."  
         except requests.exceptions.ConnectionError:
             print "request for " + url_to_try + " has been refused"
         else:        
-            print "url " + url_to_try + " es_check_response" + str(json.loads(es_check_response.text))
+            #print "url " + url_to_try + " es_check_response" + str(json.loads(es_check_response.text))
             es_check_data = json.loads(es_check_response.text)
             return settings.ELASTICSEARCH_URLS[i]
         i += 1
@@ -122,12 +124,14 @@ def find_working_es_url():
 
 #TODO: Make this not place unneeded requests on ES. Only hit > 1 URL
 #if a connection is rejected / times out
+#TODO: successfuly complete deprecating this method
 def prepare_es_url(data_type, operation="_search", from_result=None, 
                    page_size=None):
      url_base = find_working_es_url()
      if url_base == None:
          return None
-     url = url_base     + "/atsnp_data/" \
+     #TODO: change back to main data store. (atsnp_data_tiny -> atsnp_data)
+     url = url_base     + "/atsnp_data_tiny/" \
                         + data_type      \
                         + "/" + operation
      if page_size is None:
@@ -139,6 +143,19 @@ def prepare_es_url(data_type, operation="_search", from_result=None,
      print "es_url : " + url
      return url
 
+#does not sniff out if the URL works, just constructs it based on 
+#a pre-selected base URL.
+def setup_es_url(data_type, url_base, operation="_search", 
+                 from_result=None, page_size=None):
+     url = url_base     + "/atsnp_data_tiny/" \
+                        + data_type      \
+                        + "/" + operation
+     if page_size is None:
+         page_size  =   settings.ELASTICSEARCH_PAGE_SIZE
+     url = url + "?size=" + str(page_size)
+     if from_result is not None:
+         url = url + "&from=" + str(from_result) 
+     return url
 
 @api_view(['POST'])
 def scores_row_list(request):
@@ -167,6 +184,12 @@ def scores_row_list(request):
 
     data_back = get_data_out_of_es_result(es_result)
     return return_any_hits(data_back)
+
+
+
+
+
+
 
 def check_and_aggregate_gl_search_params(request):
     if not all (k in request.data.keys() for k in ("chromosome","start_pos", "end_pos")):
@@ -281,6 +304,65 @@ def search_by_genomic_location(request):
     
     data_back = get_data_out_of_es_result(es_result)
     return return_any_hits(data_back)
+
+
+#refactor this one first.
+@api_view(['POST'])
+def alternate_search_by_genomic_location(request):
+    #TODO: completely remove 'GL chunk size' this is here because I was trying
+    # to use Cassandra for this.
+    gl_coords_or_error_response = check_and_aggregate_gl_search_params(request)
+    if not gl_coords_or_error_response.__class__.__name__  == 'dict':
+        return gl_coords_or_error_response 
+
+    pvalue = get_p_value(request) #use a default if an invalid value is requested.
+    gl_coords = gl_coords_or_error_response
+    from_result = request.data.get('from_result')
+    page_size = request.data.get('page_size')
+
+    # The following code was copied into the bottom of search_by_snpid_window
+    # TODO: consider DRYing up this part of the code
+    es_query = prepare_json_for_gl_query(gl_coords, pvalue)
+    es_params = { 'from_result' : from_result, 
+                  'page_size'   : page_size }
+
+    #url stuff is handled in query_elasticsearch.
+    return query_elasticsearch(es_query, es_params)
+
+
+#TODO: factor this out into a 'helper' file, it's not strictly a view.
+#es_params is a dict with from_result and page_size
+#TODO: add a standard parametrized elasticsearch timeout from settings.
+def query_elasticsearch(completed_query, es_params):
+    #prepare es_url should be something that we pass a machine-to-try into
+    #make a copy of the list to shuffle
+    machinesToTry = settings.ELASTICSEARCH_URLS[:]      
+    random.shuffle(machinesToTry)   #try machines in different order. 
+    keepTrying = True
+    while keepTrying is True:
+        if machinesToTry:
+            esNode = machinesToTry.pop()
+        else: 
+            keepTrying = False
+            return Response('No Elasticsearch machines responded. Contact Admins.', 
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            continue #stop looping...
+        #esNode specifies the elasticSearch node we will attempt to search.
+        search_url = setup_es_url('atsnp_output', esNode,
+                               from_result = es_params['from_result'], 
+                               page_size = es_params['page_size'])
+        try: 
+            es_result = requests.post(search_url, 
+                                      data = completed_query, 
+                                      timeout = 100)
+        except requests.exceptions.Timeout:
+            print "machine at " + esNode + " timed out without response." 
+        except requests.exceptions.ConnectionError:
+            print "machine at " + esNode + " refused connection." 
+        else: 
+            data_back = get_data_out_of_es_result(es_result) 
+            return return_any_hits(data_back)
+                                      
 
 # this can be > 1, but is usually = 1.
 def check_and_return_motif_value(request):
@@ -457,11 +539,12 @@ def search_by_gene_name(request):
 
 @api_view(['POST'])
 def search_by_window_around_snpid(request):
-
     one_snpid = request.data.get('snpid')
     window_size = request.data.get('window_size')
     pvalue = get_p_value(request)
+
     page_size = request.data.get('page_size')
+    from_result = request.data.get('from_result')
 
     if window_size is None:
         window_size = 0
@@ -470,8 +553,10 @@ def search_by_window_around_snpid(request):
         return Response('No snpid specified.', 
                          status = status.HTTP_400_BAD_REQUEST)
 
-
+    #This URL is for looking up the genomic location of a SNPid. 
+    #has to be re-prepared for pageable search.
     es_url = prepare_es_url('atsnp_output') 
+
     #if elasticsearch is down, find out now. 
     if es_url is None:
         return Response('Elasticsearch is down, please contact admins.', 
@@ -498,7 +583,10 @@ def search_by_window_around_snpid(request):
     es_query = prepare_json_for_gl_query(gl_coords, pvalue)
     print "es query for snpid window search " + es_query
    
-    from_result = request.data.get('from_result')
+    #This probably isn't the right place to put the from result
+    es_url = prepare_es_url('atsnp_output', 
+                            from_result=from_result,
+                            page_size=page_size) 
     try:
         es_result = requests.post(es_url, data=es_query, timeout=100)
     except requests.exceptions.Timeout:
