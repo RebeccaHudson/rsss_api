@@ -186,10 +186,18 @@ def scores_row_list(request):
     return return_any_hits(data_back)
 
 
+#a refactor of scrores_row_list
+@api_view(['POST'])
+def alternate_search_by_snpid(request):
+    #print str(request.data)  #expect this to be a list of quoted strings...
+    pval_rank = get_p_value(request) 
+    snpid_list = request.data['snpid_list']
 
-
-
-
+    es_query = prepare_snpid_search_query_from_snpid_chunk(snpid_list, pval_rank)  
+    es_params = { 'from_result' : request.data.get('from_result'),
+                  'page_size'   : request.data.get('page_size')}
+    return query_elasticsearch(es_query, es_params)
+  
 
 def check_and_aggregate_gl_search_params(request):
     if not all (k in request.data.keys() for k in ("chromosome","start_pos", "end_pos")):
@@ -523,7 +531,6 @@ def get_position_of_gene_by_name(gene_name):
     return gl_coords 
      
 
-#TODO: keep this here till I can test the refactor.
 @api_view(['POST'])
 def search_by_gene_name(request):
     gene_name = request.data.get('gene_name')

@@ -16,10 +16,9 @@ app_name = 'api_v0'
 
 #router auto-urls as well as a hardcoded pattern...
 urlpatterns = format_suffix_patterns([
-  url(r'snpid-search/$', views.scores_row_list, name='snpid-search'),
-  url(r'search-by-gl/$', views.search_by_genomic_location, name='gl-search'),
-  url(r'search-by-tf/$', views.search_by_trans_factor, name='tf-search'),
-  url(r'search-by-gene-name/$', views.search_by_gene_name, name='gene-name-search'),
-  url(r'search-by-window-around-snpid/$', views.search_by_window_around_snpid, name='snpid-window-search'),
-  url(r'plotting-data/$', views.get_plotting_data_for_snpid, name='plotting-data'),
+  url(r'snpid-search/$', views.alternate_search_by_snpid, name='snpid-search'),
+  url(r'search-by-gl/$', views.alternate_search_by_genomic_location, name='gl-search'),
+  url(r'search-by-tf/$', views.alternate_search_by_trans_factor, name='tf-search'),
+  url(r'search-by-gene-name/$', views.alternate_search_by_gene_name, name='gene-name-search'),
+  url(r'search-by-window-around-snpid/$', views.alternate_search_by_window_around_snpid, name='snpid-window-search')
 ] )
