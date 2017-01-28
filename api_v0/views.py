@@ -34,6 +34,18 @@ def get_p_value(request):
     return request.data['pvalue_rank']
   return settings.DEFAULT_P_VALUE
 
+def get_pvalue_dict(request):
+    pv_dict = {}
+    print "request " + str(request.data)
+    for pv_name in ['rank', 'ref', 'snp']:
+        key  = "_".join(['pvalue', pv_name])
+        if request.data.has_key(key):
+            pv_dict[key] = request.data[key]
+
+    if 'pvalue_rank'not in pv_dict:
+        pv_dict[key] = settings.DEFAULT_P_VALUE
+
+    return pv_dict     
 
 def get_data_out_of_es_result(es_result):
     es_data = es_result.json()
@@ -61,6 +73,41 @@ def prepare_json_for_pvalue_filter(pvalue_rank):
    }  }
    return dict_for_filter 
 
+#TODO: consider adding the additional p-values
+def prepare_json_for_multi_pvalue_filter(pvalue_dict):
+   #pvalue_snp is missing at this point..
+   print "prior to processing " + str(pvalue_dict)
+   dict_for_filter = { "filter": [
+     {
+       "range" : {
+           "pval_rank": {
+               "lte":  str(pvalue_dict['pvalue_rank']) 
+           }
+       }
+     }
+   ]
+   }
+   if 'pvalue_ref' in  pvalue_dict:
+       dict_for_filter['filter'].append({
+           "range" : {
+               "pval_ref": {
+                   "lte":  str(pvalue_dict['pvalue_ref']) 
+               }
+           }
+       })
+   if 'pvalue_snp' in pvalue_dict:  
+       dict_for_filter['filter'].append({
+       "range" : {
+           "pval_snp": {
+               "lte":  str(pvalue_dict['pvalue_snp']) 
+                      }
+                 }
+       })
+   print "alternative pvalue_filter: " + str(dict_for_filter)
+   return dict_for_filter 
+
+
+
 def prepare_json_for_sort():
     dict_for_sort = {
                       "sort" : [ { "pval_rank" : { "order" : "asc" } }, 
@@ -69,9 +116,9 @@ def prepare_json_for_sort():
                     }
     return dict_for_sort
 
-def prepare_snpid_search_query_from_snpid_chunk(snpid_list, pvalue_rank):
+def prepare_snpid_search_query_from_snpid_chunk(snpid_list, pvalue_dict):
     snp_list = snpid_list 
-    filter_dict = prepare_json_for_pvalue_filter(pvalue_rank)
+    filter_dict = prepare_json_for_multi_pvalue_filter(pvalue_dict)
     sort = prepare_json_for_sort()
     query_dict = {
       "sort" : sort["sort"],
@@ -160,11 +207,10 @@ def setup_es_url(data_type, url_base, operation="_search",
 #a refactor of scrores_row_list
 @api_view(['POST'])
 def search_by_snpid(request):
-    #print str(request.data)  #expect this to be a list of quoted strings...
-    pval_rank = get_p_value(request) 
+    pvalue_dict = get_pvalue_dict(request)
     snpid_list = request.data['snpid_list']
-
-    es_query = prepare_snpid_search_query_from_snpid_chunk(snpid_list, pval_rank)  
+    es_query = prepare_snpid_search_query_from_snpid_chunk(snpid_list,
+                                                            pvalue_dict)  
     es_params = { 'from_result' : request.data.get('from_result'),
                   'page_size'   : request.data.get('page_size')}
     return query_elasticsearch(es_query, es_params)
@@ -178,7 +224,7 @@ def check_and_aggregate_gl_search_params(request):
     gl_coords['start_pos'] = request.data['start_pos']
     gl_coords['end_pos'] = request.data['end_pos']
     gl_coords['chromosome'] = request.data['chromosome']  # TODO: check for invlaid chromosome
-    gl_coords['pval_rank'] = get_p_value(request)
+    gl_coords['pval_rank'] = get_p_value(request)         # This can probably be removed.
 
     if gl_coords['end_pos'] < gl_coords['start_pos']:
         return Response('Start position is less than end position.',
@@ -202,6 +248,32 @@ def prepare_json_for_gl_query(gl_coords, pval_rank):
                 "must" : [
                    {
                      "range": {
+                          "pos" : {  "from" : gl_coords['start_pos'], 
+                                       "to" : gl_coords['end_pos'] }
+                      }
+                   },
+                   { "term" : { "chr" : gl_coords['chromosome'] } }
+                ],
+                "filter":  pvalue_filter["filter"]
+            }
+        }
+    }
+    json_out = json.dumps(j_dict)
+    return json_out
+
+
+#try to use 'filter' queries to speed this up.
+def prepare_json_for_gl_query_multi_pval(gl_coords, pval_dict):
+    pvalue_filter = prepare_json_for_multi_pvalue_filter(pval_dict)
+    sort = prepare_json_for_sort()
+    j_dict = {   
+        "sort" : sort["sort"], 
+        "query":
+        {
+            "bool" : {
+                "must" : [
+                   {
+                     "range": {
                           "pos" : {  "from" : gl_coords['start_pos'], "to" : gl_coords['end_pos'] }
                       }
                    },
@@ -211,11 +283,8 @@ def prepare_json_for_gl_query(gl_coords, pval_rank):
             }
         }
     }
-    #j_dict = { "filtered" : j_dict }
-    #j_dict = { "query" : j_dict }
     json_out = json.dumps(j_dict)
     return json_out
-
 def return_any_hits(data_returned):
     if data_returned['hitcount'] == 0:
         return Response('No matches.', status=status.HTTP_204_NO_CONTENT)
@@ -239,14 +308,15 @@ def search_by_genomic_location(request):
     if not gl_coords_or_error_response.__class__.__name__  == 'dict':
         return gl_coords_or_error_response 
 
-    pvalue = get_p_value(request) #use a default if an invalid value is requested.
+    #pvalue = get_p_value(request) #use a default if an invalid value is requested.
+    pvalue_dict = get_pvalue_dict(request)
     gl_coords = gl_coords_or_error_response
     from_result = request.data.get('from_result')
     page_size = request.data.get('page_size')
 
     # The following code was copied into the bottom of search_by_snpid_window
     # TODO: consider DRYing up this part of the code
-    es_query = prepare_json_for_gl_query(gl_coords, pvalue)
+    es_query = prepare_json_for_gl_query_multi_pval(gl_coords, pvalue_dict)
     es_params = { 'from_result' : from_result, 
                   'page_size'   : page_size }
 
@@ -304,8 +374,8 @@ def check_and_return_motif_value(request):
     return one_or_more_motifs 
 
 
-def prepare_json_for_tf_query(motif_list, pval_rank):
-    pvalue_filter = prepare_json_for_pvalue_filter(pval_rank)
+def prepare_json_for_tf_query(motif_list, pval_dict):
+    pvalue_filter = prepare_json_for_multi_pvalue_filter(pval_dict)
     sort = prepare_json_for_sort()
     motif_str = " ".join(motif_list)
     j_dict={
@@ -323,8 +393,8 @@ def prepare_json_for_tf_query(motif_list, pval_rank):
     } 
     return json.dumps(j_dict)
 
-def prepare_json_for_encode_tf_query(encode_prefix, pval_rank):
-    pvalue_filter = prepare_json_for_pvalue_filter(pval_rank)
+def prepare_json_for_encode_tf_query(encode_prefix, pval_dict):
+    pvalue_filter = prepare_json_for_multi_pvalue_filter(pval_dict)
     sort = prepare_json_for_sort()
     j_dict={
         "sort" : sort["sort"],
@@ -347,7 +417,7 @@ def prepare_json_for_encode_tf_query(encode_prefix, pval_rank):
 #  this API expects motif values. 
 @api_view(['POST'])
 def search_by_trans_factor(request):
-    pvalue = get_p_value(request)
+    pvalue_dict = get_pvalue_dict(request)
 
     #If we're suppsoed to check for a valid ENCODE motif, we'll see the flag:
     #    request.data.get('tf_library') == 'encode':
@@ -359,7 +429,7 @@ def search_by_trans_factor(request):
         return motif_or_error_response   #it's an error response    
 
     motif_list = motif_or_error_response       # above established this is a motif. 
-    es_query = prepare_json_for_tf_query(motif_list, pvalue)
+    es_query = prepare_json_for_tf_query(motif_list, pvalue_dict)
     
     es_params = { 'from_result' : request.data.get('from_result'),
                   'page_size' : request.data.get('page_size') }
@@ -370,9 +440,9 @@ def search_by_trans_factor(request):
 #There is no ENCODE data right now...
 #TODO: thorough testing with actual ENCODE data.
 #This is here to avoid reworking the logic in search_by_trans_factor
-def search_by_encode_trans_factor(request, es_url,  pvalue):
+def search_by_encode_trans_factor(request, es_url,  pvalue_dict):
     motif_prefix = request.data.get('motif')
-    es_query = prepare_json_for_encode_tf_query(motif_prefix, pvalue) 
+    es_query = prepare_json_for_encode_tf_query(motif_prefix, pvalue_dict) 
     print "query for encode TF : " + es_query
     try:
         es_result = requests.post(es_url, data=es_query, timeout=100)
@@ -410,7 +480,8 @@ def get_position_of_gene_by_name(gene_name):
 def search_by_gene_name(request):
     gene_name = request.data.get('gene_name')
     window_size = request.data.get('window_size')
-    pvalue = get_p_value(request)
+    #pvalue = get_p_value(request)
+    pvalue_dict = get_pvalue_dict(request)
 
     if window_size is None:
         window_size = 0
@@ -428,11 +499,10 @@ def search_by_gene_name(request):
         return Response('Gene name not found in database.', 
                         status = status.HTTP_400_BAD_REQUEST)
     #print "continued gene name search after Respnose.."
-
     gl_coords['start_pos'] = int(gl_coords['start_pos']) - window_size
     gl_coords['end_pos'] = int(gl_coords['end_pos']) + window_size
 
-    es_query = prepare_json_for_gl_query(gl_coords, pvalue)
+    es_query = prepare_json_for_gl_query_multi_pval(gl_coords, pvalue_dict)
     return query_elasticsearch(es_query, es_params)
 
 
@@ -440,7 +510,7 @@ def search_by_gene_name(request):
 def search_by_window_around_snpid(request):
     one_snpid = request.data.get('snpid')
     window_size = request.data.get('window_size')
-    pvalue = get_p_value(request)
+    pvalue_dict = get_pvalue_dict(request)
 
 
 
@@ -478,7 +548,7 @@ def search_by_window_around_snpid(request):
         #: TODO consider adding a warning here if this happens?
         gl_coords['start_pos'] = 0
 
-    es_query = prepare_json_for_gl_query(gl_coords, pvalue)
+    es_query = prepare_json_for_gl_query_multi_pval(gl_coords, pvalue_dict)
     #print "es query for snpid window search " + es_query
    
     es_params = { 'page_size' : request.data.get('page_size'),
