@@ -420,8 +420,8 @@ def search_by_trans_factor(request):
     pvalue_dict = get_pvalue_dict(request)
 
     #If we're suppsoed to check for a valid ENCODE motif, we'll see the flag:
-    #    request.data.get('tf_library') == 'encode':
-    #    return search_by_encode_trans_factor(request, es_url, pvalue)
+    if request.data.get('tf_library') == 'encode':
+        return search_by_encode_trans_factor(request,  pvalue_dict)
 
     #currently specific to JASPAR.
     motif_or_error_response = check_and_return_motif_value(request)
@@ -440,17 +440,13 @@ def search_by_trans_factor(request):
 #There is no ENCODE data right now...
 #TODO: thorough testing with actual ENCODE data.
 #This is here to avoid reworking the logic in search_by_trans_factor
-def search_by_encode_trans_factor(request, es_url,  pvalue_dict):
+def search_by_encode_trans_factor(request,  pvalue_dict):
     motif_prefix = request.data.get('motif')
     es_query = prepare_json_for_encode_tf_query(motif_prefix, pvalue_dict) 
     print "query for encode TF : " + es_query
-    try:
-        es_result = requests.post(es_url, data=es_query, timeout=100)
-    except requests.exceptions.Timeout:
-        return Response('Elasticsearch timed out. Contact admins.',
-                        status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    data_back = get_data_out_of_es_result(es_result)
-    return return_any_hits(data_back)
+    es_params = { 'from_result' : request.data.get('from_result'),
+                  'page_size'   : request.data.get('page_size')  }
+    return query_elasticsearch(es_query, es_params)
 
 
 
