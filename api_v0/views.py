@@ -553,3 +553,41 @@ def search_by_window_around_snpid(request):
     return query_elasticsearch(es_query, es_params)
 
 
+def get_one_item_from_elasticsearch_by_id(id_of_item):
+    #copied verbatim from the above method; should be refactored.
+    machinesToTry = settings.ELASTICSEARCH_URLS[:]      
+    random.shuffle(machinesToTry)   #try machines in different order. 
+    keepTrying = True
+    while keepTrying is True:
+        if machinesToTry:
+            esNode = machinesToTry.pop()
+        else: 
+            keepTrying = False
+            return Response('No Elasticsearch machines responded. Contact Admins.', 
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            continue #stop looping...
+        #esNode specifies the elasticSearch node we will attempt to search.
+        try: 
+            #queries for single datum details use elasticsearch's GET API.
+            url_base = esNode
+            search_url = url_base + "/atsnp_data_tiny/atsnp_output/" + id_of_item
+            print "querying single item for detail view with url : " + search_url
+            es_result = requests.get(search_url, timeout=100)
+            print "This came out of the detail search: " + repr(es_result)
+        except requests.exceptions.Timeout:
+            print "machine at " + esNode + " timed out without response." 
+        except requests.exceptions.ConnectionError:
+            print "machine at " + esNode + " refused connection." 
+        else: 
+            return es_result
+
+@api_view(['POST'])
+def details_for_one(request):
+    id_to_get_data_for = request.data.get('id_string')
+    print "querying details for ID =  " + id_to_get_data_for
+    data_returned = get_one_item_from_elasticsearch_by_id(id_to_get_data_for)
+    data_returned = data_returned.json()
+    print "data_returned  " + repr(data_returned)
+    serializer = ScoresRowSerializer(data_returned['_source'], many = False)
+    data_to_return = serializer.data
+    return Response(data_to_return, status=status.HTTP_200_OK)
