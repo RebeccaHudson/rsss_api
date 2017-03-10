@@ -20,5 +20,6 @@ urlpatterns = format_suffix_patterns([
   url(r'search-by-gl/$', views.search_by_genomic_location, name='gl-search'),
   url(r'search-by-tf/$', views.search_by_trans_factor, name='tf-search'),
   url(r'search-by-gene-name/$', views.search_by_gene_name, name='gene-name-search'),
-  url(r'search-by-window-around-snpid/$', views.search_by_window_around_snpid, name='snpid-window-search')
+  url(r'search-by-window-around-snpid/$', views.search_by_window_around_snpid, name='snpid-window-search'),
+  url(r'details-for-one/$', views.details_for_one, name='details-for-one')
 ] )
