@@ -44,6 +44,12 @@ def get_pvalue_dict(request):
 
     if 'pvalue_rank'not in pv_dict:
         pv_dict[key] = settings.DEFAULT_P_VALUE
+ 
+    if request.data.has_key('pvalue_snp_direction'):
+       pv_dict['pvalue_snp_direction'] = request.data['pvalue_snp_direction'] 
+
+    if request.data.has_key('pvalue_ref_direction'):
+       pv_dict['pvalue_ref_direction'] = request.data['pvalue_ref_direction']
 
     return pv_dict     
 
@@ -62,7 +68,6 @@ def get_data_out_of_es_result(es_result):
 
 
 
-#TODO: consider adding the additional p-values
 def prepare_json_for_pvalue_filter(pvalue_rank):
    dict_for_filter = { "filter": {
        "range" : {
@@ -73,7 +78,49 @@ def prepare_json_for_pvalue_filter(pvalue_rank):
    }  }
    return dict_for_filter 
 
-#TODO: consider adding the additional p-values
+#TODO: make a copy of this function that can take the pvalue_snp_direction
+#       and the pvalue_ref_direction and applies the filter directions.
+#       ONLY apply the filter directions if the pvalue_ref and pvalue_snp 
+#       values are defined in their respective inputs. (see code below)
+def prepare_json_for_pvalue_filter_directional(pvalue_dict):
+   #pvalue_snp is missing at this point..
+   print "prior to processing " + str(pvalue_dict)
+   dict_for_filter = { "filter": [
+     {
+       "range" : {
+           "pval_rank": {
+               "lte":  str(pvalue_dict['pvalue_rank']) 
+           }
+       }
+     }
+   ]
+   }
+   if 'pvalue_ref' in  pvalue_dict:
+       pvalue_ref_direction = pvalue_dict['pvalue_ref_direction']
+       if pvalue_ref_direction == 'lt' and pvalue_dict['pvalue_ref'] == 0:
+           pvalue_ref_direction = 'lte' 
+       #either lte or gte
+       dict_for_filter['filter'].append({
+           "range" : {
+               "pval_ref": {
+                   pvalue_ref_direction:  str(pvalue_dict['pvalue_ref']) 
+               }
+           }
+       })
+   if 'pvalue_snp' in pvalue_dict:  
+       pvalue_snp_direction = pvalue_dict['pvalue_snp_direction']
+       if pvalue_snp_direction == 'lt' and pvalue_dict['pvalue_snp'] == 0:
+           pvalue_snp_direction = 'lte' #don't exclude records w/ pvalue = 0
+       dict_for_filter['filter'].append({
+       "range" : {
+           "pval_snp": {
+               pvalue_snp_direction:  str(pvalue_dict['pvalue_snp']) 
+                      }
+                 }
+       })
+   print "(changed) alternative pvalue_filter: " + str(dict_for_filter)
+   return dict_for_filter 
+
 def prepare_json_for_multi_pvalue_filter(pvalue_dict):
    #pvalue_snp is missing at this point..
    print "prior to processing " + str(pvalue_dict)
@@ -262,9 +309,20 @@ def prepare_json_for_gl_query(gl_coords, pval_rank):
     return json_out
 
 
+
+
 #try to use 'filter' queries to speed this up.
 def prepare_json_for_gl_query_multi_pval(gl_coords, pval_dict):
-    pvalue_filter = prepare_json_for_multi_pvalue_filter(pval_dict)
+    pvalue_filter = None
+    #print "whole contents of pval_dict: " + repr(pval_dict)
+    #THIS is temporary until I have directional on everything.
+    if 'pvalue_snp_direction' in pval_dict.keys():
+      #print "Calling the prepare_json.. function to add the directional pvalues.. "
+      pvalue_filter = prepare_json_for_pvalue_filter_directional(pval_dict)
+    else:
+      #print "Not adding the directional pvalues"
+      pvalue_filter = prepare_json_for_multi_pvalue_filter(pval_dict)
+    
     sort = prepare_json_for_sort()
     j_dict = {   
         "sort" : sort["sort"], 
@@ -285,6 +343,9 @@ def prepare_json_for_gl_query_multi_pval(gl_coords, pval_dict):
     }
     json_out = json.dumps(j_dict)
     return json_out
+
+
+
 def return_any_hits(data_returned):
     if data_returned['hitcount'] == 0:
         return Response('No matches.', status=status.HTTP_204_NO_CONTENT)
@@ -507,7 +568,7 @@ def search_by_window_around_snpid(request):
     one_snpid = request.data.get('snpid')
     window_size = request.data.get('window_size')
     pvalue_dict = get_pvalue_dict(request)
-
+    
 
 
     if window_size is None:
@@ -543,6 +604,8 @@ def search_by_window_around_snpid(request):
     if gl_coords['start_pos'] < 0:
         #: TODO consider adding a warning here if this happens?
         gl_coords['start_pos'] = 0
+
+    #TRY ADDING THE DIRECTIONAL HERE?
 
     es_query = prepare_json_for_gl_query_multi_pval(gl_coords, pvalue_dict)
     #print "es query for snpid window search " + es_query
