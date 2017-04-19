@@ -53,14 +53,25 @@ def get_pvalue_dict(request):
 
     return pv_dict     
 
+
+#pull the _id field here; put it in with the rest of the data.
 def get_data_out_of_es_result(es_result):
     es_data = es_result.json()
     #print("es result : " + str(es_data))
     #print "es ruesult keys: "  + str(es_data.keys())
     if 'hits' in es_data.keys():
         data =  [ x['_source'] for x in es_data['hits']['hits'] ]
+        data_w_id = []
+        for one_hit in es_data['hits']['hits']:
+            one_hit_data = one_hit['_source']
+            one_hit_data['id'] = one_hit['_id']
+            data_w_id.append(one_hit_data) 
+        print "data w/ id " + repr(data_w_id)
         hitcount = es_data['hits']['total']
-        return { 'data':data, 'hitcount': hitcount}
+        #try this? data['_id'] = es_data[' 
+        #how should I include the _id field?
+        print "data : " + repr(data)
+        return { 'data':data_w_id, 'hitcount': hitcount}
     else:
         print "no hits, then what is it? "
         print "es result : " + str(es_data)
@@ -165,7 +176,8 @@ def prepare_json_for_sort():
 
 def prepare_snpid_search_query_from_snpid_chunk(snpid_list, pvalue_dict):
     snp_list = snpid_list 
-    filter_dict = prepare_json_for_multi_pvalue_filter(pvalue_dict)
+    #filter_dict = prepare_json_for_multi_pvalue_filter(pvalue_dict)
+    pvalue_filter = use_appropriate_pvalue_filter_function(pvalue_dict)
     sort = prepare_json_for_sort()
     query_dict = {
       "sort" : sort["sort"],
@@ -174,7 +186,7 @@ def prepare_snpid_search_query_from_snpid_chunk(snpid_list, pvalue_dict):
           "must": {
                "terms": { "snpid" : snp_list }
           },
-          "filter" : filter_dict["filter"]
+          "filter" : pvalue_filter["filter"]
         }
       }
     }
@@ -316,13 +328,9 @@ def prepare_json_for_gl_query_multi_pval(gl_coords, pval_dict):
     pvalue_filter = None
     #print "whole contents of pval_dict: " + repr(pval_dict)
     #THIS is temporary until I have directional on everything.
-    if 'pvalue_snp_direction' in pval_dict.keys():
-      #print "Calling the prepare_json.. function to add the directional pvalues.. "
-      pvalue_filter = prepare_json_for_pvalue_filter_directional(pval_dict)
-    else:
-      #print "Not adding the directional pvalues"
-      pvalue_filter = prepare_json_for_multi_pvalue_filter(pval_dict)
-    
+    print "gl query: pval dict: " + repr(pval_dict)
+    pvalue_filter = use_appropriate_pvalue_filter_function(pval_dict)
+
     sort = prepare_json_for_sort()
     j_dict = {   
         "sort" : sort["sort"], 
@@ -435,8 +443,21 @@ def check_and_return_motif_value(request):
     return one_or_more_motifs 
 
 
+#Apply directions for the SNP and reference pvalue filters if present.
+def use_appropriate_pvalue_filter_function(pval_dict):
+    pvalue_filter = None 
+    if 'pvalue_snp_direction' in pval_dict.keys():
+      pvalue_filter = prepare_json_for_pvalue_filter_directional(pval_dict)
+    else:
+      pvalue_filter = prepare_json_for_multi_pvalue_filter(pval_dict)
+    return pvalue_filter
+    
+
+
 def prepare_json_for_tf_query(motif_list, pval_dict):
-    pvalue_filter = prepare_json_for_multi_pvalue_filter(pval_dict)
+    #pvalue_filter = prepare_json_for_multi_pvalue_filter(pval_dict)
+    pvalue_filter = use_appropriate_pvalue_filter_function(pval_dict)
+
     sort = prepare_json_for_sort()
     motif_str = " ".join(motif_list)
     j_dict={
@@ -455,7 +476,8 @@ def prepare_json_for_tf_query(motif_list, pval_dict):
     return json.dumps(j_dict)
 
 def prepare_json_for_encode_tf_query(encode_prefix, pval_dict):
-    pvalue_filter = prepare_json_for_multi_pvalue_filter(pval_dict)
+    #pvalue_filter = prepare_json_for_multi_pvalue_filter(pval_dict)
+    pvalue_filter = use_appropriate_pvalue_filter_function(pval_dict)
     sort = prepare_json_for_sort()
     j_dict={
         "sort" : sort["sort"],
