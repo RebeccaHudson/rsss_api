@@ -16,6 +16,7 @@ import re
 import json
 import random
 
+from DataReconstructor import DataReconstructor
 
 
 def chunk(input, size):
@@ -65,6 +66,8 @@ def get_data_out_of_es_result(es_result):
         for one_hit in es_data['hits']['hits']:
             one_hit_data = one_hit['_source']
             one_hit_data['id'] = one_hit['_id']
+            if 'ref_and_snp_strand' in one_hit_data:
+                one_hit_data = DataReconstructor(one_hit_data).get_reconstructed_record()
             data_w_id.append(one_hit_data) 
         print "data w/ id " + repr(data_w_id)
         hitcount = es_data['hits']['total']
@@ -175,7 +178,8 @@ def prepare_json_for_sort():
     return dict_for_sort
 
 def prepare_snpid_search_query_from_snpid_chunk(snpid_list, pvalue_dict):
-    snp_list = snpid_list 
+    #snp_list = snpid_list 
+    snp_list = [ int(m.replace('rs', '')) for m in snpid_list]
     #filter_dict = prepare_json_for_multi_pvalue_filter(pvalue_dict)
     pvalue_filter = use_appropriate_pvalue_filter_function(pvalue_dict)
     sort = prepare_json_for_sort()
@@ -201,11 +205,12 @@ def prepare_snpid_search_query_from_snpid_chunk(snpid_list, pvalue_dict):
 #detect and respond to this situation appropriately.
 def find_working_es_url():
     found_working = False
+    name_of_es_index = 'atsnp_data_tiny'
     i = 0 
     while found_working is False:
         #TODO: change back to main data store. (atsnp_data_tiny -> atsnp_data)
         url_to_try = settings.ELASTICSEARCH_URLS[i] + \
-                      '/atsnp_data_tiny/atsnp_output/_search?size=1'
+                      '/' + name_of_es_index  + '/atsnp_output/_search?size=1'
         print "trying this url " + url_to_try
         es_check_response = None
         try:
@@ -236,7 +241,7 @@ def prepare_es_url(data_type, operation="_search", from_result=None,
      if url_base == None:
          return None
      #TODO: change back to main data store. (atsnp_data_tiny -> atsnp_data)
-     url = url_base     + "/atsnp_data_tiny/" \
+     url = url_base     + "/atsnp_reduced_test/" \
                         + data_type      \
                         + "/" + operation
      if page_size is None:
@@ -252,7 +257,10 @@ def prepare_es_url(data_type, operation="_search", from_result=None,
 #a pre-selected base URL.
 def setup_es_url(data_type, url_base, operation="_search", 
                  from_result=None, page_size=None):
-     url = url_base     + "/atsnp_data_tiny/" \
+     #url = url_base     + "/atsnp_data_tiny/" \
+     #                   + data_type      \
+     #                   + "/" + operation
+     url = url_base     + "/atsnp_reduced_test/" \
                         + data_type      \
                         + "/" + operation
      if page_size is None:
@@ -282,7 +290,11 @@ def check_and_aggregate_gl_search_params(request):
     gl_coords =  {}
     gl_coords['start_pos'] = request.data['start_pos']
     gl_coords['end_pos'] = request.data['end_pos']
-    gl_coords['chromosome'] = request.data['chromosome']  # TODO: check for invlaid chromosome
+    gl_coords['chromosome'] =  request.data['chromosome']  # TODO: check for invlaid chromosome
+    #Chromosomes are numeric as stored in the minimized data set.
+    gl_coords['chromosome'] = gl_coords['chromosome'].replace('ch', '') 
+    #does it explcitly need to be an int?
+
     gl_coords['pval_rank'] = get_p_value(request)         # This can probably be removed.
 
     if gl_coords['end_pos'] < gl_coords['start_pos']:
@@ -350,6 +362,7 @@ def prepare_json_for_gl_query_multi_pval(gl_coords, pval_dict):
         }
     }
     json_out = json.dumps(j_dict)
+    print "dict before query : " + json_out
     return json_out
 
 
@@ -588,15 +601,14 @@ def search_by_gene_name(request):
 @api_view(['POST'])
 def search_by_window_around_snpid(request):
     one_snpid = request.data.get('snpid')
+    numeric_snpid = one_snpid.replace('rs', '') #to compensate for our optimizations
     window_size = request.data.get('window_size')
     pvalue_dict = get_pvalue_dict(request)
     
-
-
     if window_size is None:
         window_size = 0
  
-    if one_snpid is None: 
+    if numeric_snpid is None: 
         return Response('No snpid specified.', 
                          status = status.HTTP_400_BAD_REQUEST)
 
@@ -604,12 +616,15 @@ def search_by_window_around_snpid(request):
     #has to be re-prepared for pageable search.
     es_url = prepare_es_url('atsnp_output') 
 
+
+
     #if elasticsearch is down, find out now. 
     if es_url is None:
         return Response('Elasticsearch is down, please contact admins.', 
                          status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    query_for_snpid_location = {"query":{"match":{"snpid":one_snpid }}}
+    #query_for_snpid_location = {"query":{"match":{"snpid":one_snpid }}}
+    query_for_snpid_location = {"query":{"match":{"snpid":numeric_snpid }}}
     es_query = json.dumps(query_for_snpid_location)
     es_result = requests.post(es_url, data=es_query, timeout=100)
     records_for_snpid = get_data_out_of_es_result(es_result)
@@ -619,6 +634,7 @@ def search_by_window_around_snpid(request):
                         status = status.HTTP_204_NO_CONTENT)
 
     record_to_pick = records_for_snpid['data'][0]
+    record_to_pick['chr'] = record_to_pick['chr'].replace('ch', '') #Account for minimized data
     gl_coords = { 'chromosome' :  record_to_pick['chr'],
                   'start_pos'  :  record_to_pick['pos'] - window_size,
                   'end_pos'    :  record_to_pick['pos'] + window_size
@@ -655,10 +671,10 @@ def get_one_item_from_elasticsearch_by_id(id_of_item):
         try: 
             #queries for single datum details use elasticsearch's GET API.
             url_base = esNode
-            search_url = url_base + "/atsnp_data_tiny/atsnp_output/" + id_of_item
+            #search_url = url_base + "/atsnp_data_tiny/atsnp_output/" + id_of_item
+            search_url = url_base + "/atsnp_reduced_test/atsnp_output/" + id_of_item
             print "querying single item for detail view with url : " + search_url
             es_result = requests.get(search_url, timeout=100)
-            print "This came out of the detail search: " + repr(es_result)
         except requests.exceptions.Timeout:
             print "machine at " + esNode + " timed out without response." 
         except requests.exceptions.ConnectionError:
@@ -672,7 +688,13 @@ def details_for_one(request):
     print "querying details for ID =  " + id_to_get_data_for
     data_returned = get_one_item_from_elasticsearch_by_id(id_to_get_data_for)
     data_returned = data_returned.json()
-    print "data_returned  " + repr(data_returned)
-    serializer = ScoresRowSerializer(data_returned['_source'], many = False)
+   
+    single_hit = data_returned['_source']    
+    single_hit['id'] = data_returned['_id'] 
+    es_result = DataReconstructor(single_hit).get_reconstructed_record()
+
+    print "data_returned  " + repr(es_result)
+    #serializer = ScoresRowSerializer(data_returned['_source'], many = False)
+    serializer = ScoresRowSerializer(es_result, many = False)
     data_to_return = serializer.data
     return Response(data_to_return, status=status.HTTP_200_OK)
