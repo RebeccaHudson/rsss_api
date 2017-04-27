@@ -37,7 +37,7 @@ def get_p_value(request):
 
 def get_pvalue_dict(request):
     pv_dict = {}
-    print "request " + str(request.data)
+    #print "request " + str(request.data)
     for pv_name in ['rank', 'ref', 'snp']:
         key  = "_".join(['pvalue', pv_name])
         if request.data.has_key(key):
@@ -69,11 +69,11 @@ def get_data_out_of_es_result(es_result):
             if 'ref_and_snp_strand' in one_hit_data:
                 one_hit_data = DataReconstructor(one_hit_data).get_reconstructed_record()
             data_w_id.append(one_hit_data) 
-        print "data w/ id " + repr(data_w_id)
+        #print "data w/ id " + repr(data_w_id)
         hitcount = es_data['hits']['total']
         #try this? data['_id'] = es_data[' 
         #how should I include the _id field?
-        print "data : " + repr(data)
+        #print "data : " + repr(data)
         return { 'data':data_w_id, 'hitcount': hitcount}
     else:
         print "no hits, then what is it? "
@@ -98,7 +98,7 @@ def prepare_json_for_pvalue_filter(pvalue_rank):
 #       values are defined in their respective inputs. (see code below)
 def prepare_json_for_pvalue_filter_directional(pvalue_dict):
    #pvalue_snp is missing at this point..
-   print "prior to processing " + str(pvalue_dict)
+   #print "prior to processing " + str(pvalue_dict)
    dict_for_filter = { "filter": [
      {
        "range" : {
@@ -132,12 +132,12 @@ def prepare_json_for_pvalue_filter_directional(pvalue_dict):
                       }
                  }
        })
-   print "(changed) alternative pvalue_filter: " + str(dict_for_filter)
+   #print "(changed) alternative pvalue_filter: " + str(dict_for_filter)
    return dict_for_filter 
 
 def prepare_json_for_multi_pvalue_filter(pvalue_dict):
    #pvalue_snp is missing at this point..
-   print "prior to processing " + str(pvalue_dict)
+   #print "prior to processing " + str(pvalue_dict)
    dict_for_filter = { "filter": [
      {
        "range" : {
@@ -164,7 +164,7 @@ def prepare_json_for_multi_pvalue_filter(pvalue_dict):
                       }
                  }
        })
-   print "alternative pvalue_filter: " + str(dict_for_filter)
+   #print "alternative pvalue_filter: " + str(dict_for_filter)
    return dict_for_filter 
 
 
@@ -295,6 +295,10 @@ def check_and_aggregate_gl_search_params(request):
     gl_coords['chromosome'] = gl_coords['chromosome'].replace('ch', '') 
     #does it explcitly need to be an int?
 
+    if not gl_coords['chromosome'].isdigit():   #could be pulled out into another function.
+        non_numeric_chromosomes = { 'X' : 23, 'Y': 24, 'M': 25, 'MT': 25 }
+        gl_coords['chromosome'] = non_numeric_chromosomes[gl_coords['chromosome']]
+
     gl_coords['pval_rank'] = get_p_value(request)         # This can probably be removed.
 
     if gl_coords['end_pos'] < gl_coords['start_pos']:
@@ -340,7 +344,7 @@ def prepare_json_for_gl_query_multi_pval(gl_coords, pval_dict):
     pvalue_filter = None
     #print "whole contents of pval_dict: " + repr(pval_dict)
     #THIS is temporary until I have directional on everything.
-    print "gl query: pval dict: " + repr(pval_dict)
+    #print "gl query: pval dict: " + repr(pval_dict)
     pvalue_filter = use_appropriate_pvalue_filter_function(pval_dict)
 
     sort = prepare_json_for_sort()
@@ -362,7 +366,7 @@ def prepare_json_for_gl_query_multi_pval(gl_coords, pval_dict):
         }
     }
     json_out = json.dumps(j_dict)
-    print "dict before query : " + json_out
+    #print "dict before query : " + json_out
     return json_out
 
 
@@ -377,7 +381,7 @@ def return_any_hits(data_returned):
 
     serializer = ScoresRowSerializer(data_returned['data'], many = True)
     data_returned['data'] = serializer.data
-    print "called return any hits..."
+    #print "called return any hits..."
     return Response(data_returned, status=status.HTTP_200_OK)
 
 
@@ -539,7 +543,7 @@ def search_by_trans_factor(request):
 def search_by_encode_trans_factor(request,  pvalue_dict):
     motif_prefix = request.data.get('motif')
     es_query = prepare_json_for_encode_tf_query(motif_prefix, pvalue_dict) 
-    print "query for encode TF : " + es_query
+    #print "query for encode TF : " + es_query
     es_params = { 'from_result' : request.data.get('from_result'),
                   'page_size'   : request.data.get('page_size')  }
     return query_elasticsearch(es_query, es_params)
@@ -565,11 +569,11 @@ def get_position_of_gene_by_name(gene_name):
                         + "/" + operation
     #should be just one result..
     #print "query : " + json_query
-    print "es url " + es_url
+    #print "es url " + es_url
     es_result = requests.post(es_url, data=json_query, timeout=50) 
     gene_coords = get_data_out_of_es_result(es_result)
     if gene_coords['hitcount'] == 0: 
-         print "gene not found : " + gene_name
+         #print "gene not found : " + gene_name
          return None
     gc = gene_coords['data'][0]
     gl_coords = { 'chromosome': gc['chr'].replace('chr', ''), # gc['chr'].replace('hr', 'h') ,
@@ -605,7 +609,7 @@ def search_by_gene_name(request):
     gl_coords['start_pos'] = int(gl_coords['start_pos']) - window_size
     gl_coords['end_pos'] = int(gl_coords['end_pos']) + window_size
 
-    print "gl coordinates " + repr(gl_coords)
+    #print "gl coordinates " + repr(gl_coords)
     es_query = prepare_json_for_gl_query_multi_pval(gl_coords, pvalue_dict)
     return query_elasticsearch(es_query, es_params)
 
@@ -685,7 +689,7 @@ def get_one_item_from_elasticsearch_by_id(id_of_item):
             url_base = esNode
             #search_url = url_base + "/atsnp_data_tiny/atsnp_output/" + id_of_item
             search_url = url_base + "/atsnp_reduced_test/atsnp_output/" + id_of_item
-            print "querying single item for detail view with url : " + search_url
+            #print "querying single item for detail view with url : " + search_url
             es_result = requests.get(search_url, timeout=100)
         except requests.exceptions.Timeout:
             print "machine at " + esNode + " timed out without response." 
@@ -697,7 +701,7 @@ def get_one_item_from_elasticsearch_by_id(id_of_item):
 @api_view(['POST'])
 def details_for_one(request):
     id_to_get_data_for = request.data.get('id_string')
-    print "querying details for ID =  " + id_to_get_data_for
+    #print "querying details for ID =  " + id_to_get_data_for
     data_returned = get_one_item_from_elasticsearch_by_id(id_to_get_data_for)
     data_returned = data_returned.json()
    
@@ -705,7 +709,7 @@ def details_for_one(request):
     single_hit['id'] = data_returned['_id'] 
     es_result = DataReconstructor(single_hit).get_reconstructed_record()
 
-    print "data_returned  " + repr(es_result)
+    #print "data_returned  " + repr(es_result)
     #serializer = ScoresRowSerializer(data_returned['_source'], many = False)
     serializer = ScoresRowSerializer(es_result, many = False)
     data_to_return = serializer.data

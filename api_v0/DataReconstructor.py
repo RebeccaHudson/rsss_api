@@ -13,7 +13,7 @@ import requests
 class DataReconstructor(object):
 
     def __init__(self, record):
-        print "keys in record prior to processing: " + repr(record.keys())
+        #print "keys in record prior to processing: " + repr(record.keys())
         doc_id = record['id'] 
         #record = record['_source']
         self.rebuilt = \
@@ -23,7 +23,7 @@ class DataReconstructor(object):
         return self.rebuilt 
 
     def reconstruct_reduced_record(self, red, doc_id): 
-        print "keys in record during reconstruction: " + repr(red.keys())
+        #print "keys in record during reconstruction: " + repr(red.keys())
         #doc_id = red['_id']   use when the _id field is added to the _source.
         red.update(self.unbox_strand_info(red['ref_and_snp_strand']))
         red['snpid'] = self.rebuild_snpid(red['snpid'])
@@ -53,7 +53,11 @@ class DataReconstructor(object):
         return 'rs' + str(snpid)
 
     def reconstruct_chromosome(self, ch):
-         return 'ch' + str(ch)
+         if ch < 23:
+           return 'ch' + str(ch)
+         non_numeric_chromosomes = \
+          { 23: 'X', 24: 'Y', 25: 'M' }        
+         return 'ch' + non_numeric_chromosomes[ch]
 
     def reconstruct_alleles(self, atsnp_data):
          pos = self.get_snp_position(atsnp_data) - 1
