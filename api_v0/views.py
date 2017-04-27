@@ -545,7 +545,7 @@ def search_by_encode_trans_factor(request,  pvalue_dict):
     return query_elasticsearch(es_query, es_params)
 
 
-
+#TODO: complete adapting this function; it should WORK.
 def get_position_of_gene_by_name(gene_name):
     j_dict = { "query" : {
                    "match" : {
@@ -553,15 +553,26 @@ def get_position_of_gene_by_name(gene_name):
                    }
                 }
              } 
+
     json_query = json.dumps(j_dict)
-    es_url = prepare_es_url('gencode_gene_symbols') 
+    #es_url = prepare_es_url('gencode_gene_symbols') 
+   
+    url_base = find_working_es_url()
+    operation = '_search'
+    data_type = 'gencode_gene_symbols'
+    es_url = url_base  + "/gencode_genes/" \
+                        + data_type      \
+                        + "/" + operation
+    #should be just one result..
     #print "query : " + json_query
+    print "es url " + es_url
     es_result = requests.post(es_url, data=json_query, timeout=50) 
     gene_coords = get_data_out_of_es_result(es_result)
     if gene_coords['hitcount'] == 0: 
+         print "gene not found : " + gene_name
          return None
     gc = gene_coords['data'][0]
-    gl_coords = { 'chromosome': gc['chr'].replace('hr', 'h') ,
+    gl_coords = { 'chromosome': gc['chr'].replace('chr', ''), # gc['chr'].replace('hr', 'h') ,
                   'start_pos' : gc['start_pos'] ,
                   'end_pos'   : gc['end_pos']     }
     return gl_coords 
@@ -594,6 +605,7 @@ def search_by_gene_name(request):
     gl_coords['start_pos'] = int(gl_coords['start_pos']) - window_size
     gl_coords['end_pos'] = int(gl_coords['end_pos']) + window_size
 
+    print "gl coordinates " + repr(gl_coords)
     es_query = prepare_json_for_gl_query_multi_pval(gl_coords, pvalue_dict)
     return query_elasticsearch(es_query, es_params)
 
