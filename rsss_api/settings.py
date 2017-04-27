@@ -75,12 +75,12 @@ WSGI_APPLICATION = 'rsss_api.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/1.9/ref/settings/#databases
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
-    }
-}
+#DATABASES = {
+#    'default': {
+#        'ENGINE': 'django.db.backends.sqlite3',
+#        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+#    }
+#}
 
 ELASTICSEARCH_URL='http://atsnp-db1.biostat.wisc.edu:9200'
 ELASTICSEARCH_URLS = [ 'http://atsnp-db'+ str(x) +'.biostat.wisc.edu:9200' for x in range(1,4) ]
