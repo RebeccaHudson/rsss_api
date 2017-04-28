@@ -408,19 +408,15 @@ def check_and_return_motif_value(request):
                           status = status.HTTP_400_BAD_REQUEST) 
     return one_or_more_motifs 
 
-
 #Apply directions for the SNP and reference pvalue filters if present.
 def use_appropriate_pvalue_filter_function(pval_dict):
     pvalue_filter = None 
-    if 'pvalue_snp_direction' in pval_dict.keys():
-      pvalue_filter = prepare_json_for_pvalue_filter_directional(pval_dict)
+    #directions always go in; even if the number is not present.
+    pvalue_filter = prepare_json_for_pvalue_filter_directional(pval_dict)
     return pvalue_filter
-    
-
 
 def prepare_json_for_tf_query(motif_list, pval_dict):
     pvalue_filter = use_appropriate_pvalue_filter_function(pval_dict)
-
     sort = prepare_json_for_sort()
     motif_str = " ".join(motif_list)
     j_dict={
