@@ -18,11 +18,8 @@ import random
 
 from DataReconstructor import DataReconstructor
 
+#TRY to remove this.
 # TODO: return an error if a p-value input is invalid.
-def get_p_value(request):
-  if request.data.has_key('pvalue_rank'):
-    return request.data['pvalue_rank']
-  return settings.DEFAULT_P_VALUE
 
 def get_pvalue_dict(request):
     pv_dict = {}
@@ -271,7 +268,8 @@ def search_by_snpid(request):
                   'page_size'   : request.data.get('page_size')}
     return query_elasticsearch(es_query, es_params)
   
-
+#does this really get used?
+#YES. It does not handle anything with/about pvalues.
 def check_and_aggregate_gl_search_params(request):
     if not all (k in request.data.keys() for k in ("chromosome","start_pos", "end_pos")):
         return Response('Must include chromosome, start, and end position.',
@@ -287,8 +285,6 @@ def check_and_aggregate_gl_search_params(request):
     if not gl_coords['chromosome'].isdigit():   #could be pulled out into another function.
         non_numeric_chromosomes = { 'X' : 23, 'Y': 24, 'M': 25, 'MT': 25 }
         gl_coords['chromosome'] = non_numeric_chromosomes[gl_coords['chromosome']]
-
-    gl_coords['pval_rank'] = get_p_value(request)         # This can probably be removed.
 
     if gl_coords['end_pos'] < gl_coords['start_pos']:
         return Response('Start position is less than end position.',
@@ -383,7 +379,6 @@ def search_by_genomic_location(request):
     if not gl_coords_or_error_response.__class__.__name__  == 'dict':
         return gl_coords_or_error_response 
 
-    #pvalue = get_p_value(request) #use a default if an invalid value is requested.
     pvalue_dict = get_pvalue_dict(request)
     gl_coords = gl_coords_or_error_response
     from_result = request.data.get('from_result')
@@ -582,7 +577,6 @@ def get_position_of_gene_by_name(gene_name):
 def search_by_gene_name(request):
     gene_name = request.data.get('gene_name')
     window_size = request.data.get('window_size')
-    #pvalue = get_p_value(request)
     pvalue_dict = get_pvalue_dict(request)
 
     if window_size is None:
