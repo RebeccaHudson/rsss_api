@@ -18,17 +18,6 @@ import random
 
 from DataReconstructor import DataReconstructor
 
-
-def chunk(input, size):
-  chunked =  map(None, *([iter(input)] * size))
-  chunks_back = []
-  #print "chunked " + str(chunked)
-  for one_chunk in chunked:
-      if one_chunk is not None:
-          chunks_back.append([ x.encode("ascii") for x in one_chunk if x is not None])
-  #print "chunks back  " + str(chunks_back)
-  return chunks_back
-
 # TODO: return an error if a p-value input is invalid.
 def get_p_value(request):
   if request.data.has_key('pvalue_rank'):
@@ -576,7 +565,13 @@ def get_position_of_gene_by_name(gene_name):
          #print "gene not found : " + gene_name
          return None
     gc = gene_coords['data'][0]
-    gl_coords = { 'chromosome': gc['chr'].replace('chr', ''), # gc['chr'].replace('hr', 'h') ,
+ 
+    gc['chr'] = gc['chr'].replace('chr', '')
+    if not gc['chr'].isdigit():   #could be pulled out into another function.
+        non_numeric_chromosomes = { 'X' : 23, 'Y': 24, 'M': 25, 'MT': 25 }
+        gc['chr'] = non_numeric_chromosomes[gc['chr']]
+
+    gl_coords = { 'chromosome': gc['chr'], #gc['chr'].replace('chr', ''), # gc['chr'].replace('hr', 'h') ,
                   'start_pos' : gc['start_pos'] ,
                   'end_pos'   : gc['end_pos']     }
     return gl_coords 
