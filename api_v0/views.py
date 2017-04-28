@@ -121,40 +121,6 @@ def prepare_json_for_pvalue_filter_directional(pvalue_dict):
    #print "(changed) alternative pvalue_filter: " + str(dict_for_filter)
    return dict_for_filter 
 
-def prepare_json_for_multi_pvalue_filter(pvalue_dict):
-   #pvalue_snp is missing at this point..
-   #print "prior to processing " + str(pvalue_dict)
-   dict_for_filter = { "filter": [
-     {
-       "range" : {
-           "pval_rank": {
-               "lte":  str(pvalue_dict['pvalue_rank']) 
-           }
-       }
-     }
-   ]
-   }
-   if 'pvalue_ref' in  pvalue_dict:
-       dict_for_filter['filter'].append({
-           "range" : {
-               "pval_ref": {
-                   "lte":  str(pvalue_dict['pvalue_ref']) 
-               }
-           }
-       })
-   if 'pvalue_snp' in pvalue_dict:  
-       dict_for_filter['filter'].append({
-       "range" : {
-           "pval_snp": {
-               "lte":  str(pvalue_dict['pvalue_snp']) 
-                      }
-                 }
-       })
-   #print "alternative pvalue_filter: " + str(dict_for_filter)
-   return dict_for_filter 
-
-
-
 def prepare_json_for_sort():
     dict_for_sort = {
                       "sort" : [ { "pval_rank" : { "order" : "asc" } }, 
@@ -166,7 +132,6 @@ def prepare_json_for_sort():
 def prepare_snpid_search_query_from_snpid_chunk(snpid_list, pvalue_dict):
     #snp_list = snpid_list 
     snp_list = [ int(m.replace('rs', '')) for m in snpid_list]
-    #filter_dict = prepare_json_for_multi_pvalue_filter(pvalue_dict)
     pvalue_filter = use_appropriate_pvalue_filter_function(pvalue_dict)
     sort = prepare_json_for_sort()
     query_dict = {
@@ -449,14 +414,11 @@ def use_appropriate_pvalue_filter_function(pval_dict):
     pvalue_filter = None 
     if 'pvalue_snp_direction' in pval_dict.keys():
       pvalue_filter = prepare_json_for_pvalue_filter_directional(pval_dict)
-    else:
-      pvalue_filter = prepare_json_for_multi_pvalue_filter(pval_dict)
     return pvalue_filter
     
 
 
 def prepare_json_for_tf_query(motif_list, pval_dict):
-    #pvalue_filter = prepare_json_for_multi_pvalue_filter(pval_dict)
     pvalue_filter = use_appropriate_pvalue_filter_function(pval_dict)
 
     sort = prepare_json_for_sort()
@@ -477,7 +439,6 @@ def prepare_json_for_tf_query(motif_list, pval_dict):
     return json.dumps(j_dict)
 
 def prepare_json_for_encode_tf_query(encode_prefix, pval_dict):
-    #pvalue_filter = prepare_json_for_multi_pvalue_filter(pval_dict)
     pvalue_filter = use_appropriate_pvalue_filter_function(pval_dict)
     sort = prepare_json_for_sort()
     j_dict={
