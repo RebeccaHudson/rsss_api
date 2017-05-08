@@ -129,6 +129,30 @@ def prepare_json_for_sort():
                     }
     return dict_for_sort
 
+#TODO: replace prepare_for_sort completely with the following method.
+def prepare_json_for_custom_sort(sort_orders):
+    print "sort order? " + repr(sort_orders)
+    #'coordinate' means 'chr' and 'pos'
+    so = sort_orders['sort']
+    for i, x  in enumerate(so):
+        print "i: " + str(i)
+        print "x: " + str(x)
+        if x.keys()[0] == 'coordinate':
+            print "translating" #  x['coordinate']
+            #get a copy of the order dict
+            x[u'chr'] = x['coordinate']
+            pos = { u'pos' : x['coordinate'] }
+            where_to_put = i + 1
+            del x['coordinate']
+            print repr(so)
+            break
+    so.insert(where_to_put, pos)
+    sort_orders['sort'] = so
+    #sort_orders['sort']['coordinate']
+    #any processing required?
+    return sort_orders
+
+
 def prepare_snpid_search_query_from_snpid_chunk(snpid_list, pvalue_dict):
     #snp_list = snpid_list 
     snp_list = [ int(m.replace('rs', '')) for m in snpid_list]
@@ -290,7 +314,7 @@ def prepare_json_for_gl_query(gl_coords, pval_rank):
 
 
 #try to use 'filter' queries to speed this up.
-def prepare_json_for_gl_query_multi_pval(gl_coords, pval_dict):
+def prepare_json_for_gl_query_multi_pval(gl_coords, pval_dict, sort_info=None):
     pvalue_filter = None
     #print "whole contents of pval_dict: " + repr(pval_dict)
     #THIS is temporary until I have directional on everything.
@@ -298,6 +322,10 @@ def prepare_json_for_gl_query_multi_pval(gl_coords, pval_dict):
     pvalue_filter = use_appropriate_pvalue_filter_function(pval_dict)
 
     sort = prepare_json_for_sort()
+    if sort_info is not None:
+        print "using custom sort! " + repr(sort)
+        sort =  prepare_json_for_custom_sort(sort_info)
+
     j_dict = {   
         "sort" : sort["sort"], 
         "query":
@@ -535,6 +563,10 @@ def search_by_gene_name(request):
     gene_name = request.data.get('gene_name')
     window_size = request.data.get('window_size')
     pvalue_dict = get_pvalue_dict(request)
+    sort_order = request.data.get('sort_order')
+
+    print "sort order: " + repr(sort_order)
+    #load as json? or is it already?
 
     if window_size is None:
         window_size = 0
@@ -556,7 +588,7 @@ def search_by_gene_name(request):
     gl_coords['end_pos'] = int(gl_coords['end_pos']) + window_size
 
     #print "gl coordinates " + repr(gl_coords)
-    es_query = prepare_json_for_gl_query_multi_pval(gl_coords, pvalue_dict)
+    es_query = prepare_json_for_gl_query_multi_pval(gl_coords, pvalue_dict, sort_info=sort_order)
     return query_elasticsearch(es_query, es_params)
 
 
