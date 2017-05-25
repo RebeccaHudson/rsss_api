@@ -370,31 +370,10 @@ def return_any_hits(data_returned):
     #print "called return any hits..."
     return Response(data_returned, status=status.HTTP_200_OK)
 
-
-#refactor this one first.
 @api_view(['POST'])
 def search_by_genomic_location(request):
-    #TODO: completely remove 'GL chunk size' this is here because I was trying
-    # to use Cassandra for this.
-    gl_coords_or_error_response = check_and_aggregate_gl_search_params(request)
-    if not gl_coords_or_error_response.__class__.__name__  == 'dict':
-        return gl_coords_or_error_response 
-
-    pvalue_dict = get_pvalue_dict(request)
-    gl_coords = gl_coords_or_error_response
-    from_result = request.data.get('from_result')
-    page_size = request.data.get('page_size')
-    sort_order = request.data.get('sort_order')
-
-    # The following code was copied into the bottom of search_by_snpid_window
-    # TODO: consider DRYing up this part of the code
-    es_query = prepare_json_for_gl_query_multi_pval(gl_coords, pvalue_dict)
-
     es_params = setup_paging_parameters(request) 
     es_query = GenomicLocationQuery(request).get_query()
-    #print "this is the not-working query " + repr(es_query)
-    #url stuff is handled in query_elasticsearch.
-    #print "about to gl query elasticsearch " + repr(es_query)
     return query_elasticsearch(es_query, es_params)
 
 #paging parameters are used on the ES URL.

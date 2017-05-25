@@ -1,8 +1,6 @@
 import json
-#This is to be a class from which all of our queries inherits.
-#A class called ElasticsearchAtsnpQuery
+#A class from which all of our queries inherits.
 
-#shoudl be initialized; and then return from that.
 class ElasticsearchAtsnpQuery(object):
 
     def __init__(self, request):   
