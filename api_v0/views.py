@@ -18,7 +18,7 @@ import random
 
 from DataReconstructor import DataReconstructor
 from GenomicLocationQuery import GenomicLocationQuery
-
+from TransFactorQuery import TransFactorQuery
 #TRY to remove this.
 # TODO: return an error if a p-value input is invalid.
 
@@ -177,10 +177,6 @@ def prepare_snpid_search_query_from_snpid_chunk(snpid_list, pvalue_dict, sort_in
     }
     print("query " + json.dumps(query_dict) )
     return json.dumps(query_dict) 
-
-
-
-
 
 #sometimes one of the ES urls is non-responsive.
 #detect and respond to this situation appropriately.
@@ -360,22 +356,6 @@ def query_elasticsearch(completed_query, es_params):
         else: 
             data_back = get_data_out_of_es_result(es_result) 
             return return_any_hits(data_back)
-                                      
-
-# this can be > 1, but is usually = 1.
-def check_and_return_motif_value(request):
-    one_or_more_motifs = request.data.get('motif')
-    #print("type of motif param: " + str(type(one_or_more_motifs)))
-    #print("one or more motifs: " + str(one_or_more_motifs))
-    if one_or_more_motifs is None: 
-        return Response('No motif specified!', 
-                        status = status.HTTP_400_BAD_REQUEST)    
-    for motif in one_or_more_motifs: 
-        test_match = re.match(r'M(\w+[.])+\w+', motif )
-        if test_match is None: 
-            return Response('No well-formed motifs.', 
-                          status = status.HTTP_400_BAD_REQUEST) 
-    return one_or_more_motifs 
 
 #Apply directions for the SNP and reference pvalue filters if present.
 def use_appropriate_pvalue_filter_function(pval_dict):
@@ -384,92 +364,13 @@ def use_appropriate_pvalue_filter_function(pval_dict):
     pvalue_filter = prepare_json_for_pvalue_filter_directional(pval_dict)
     return pvalue_filter
 
-def prepare_json_for_tf_query(motif_list, pval_dict, sort_info=None):
-
-    pvalue_filter = use_appropriate_pvalue_filter_function(pval_dict)
-    sort = prepare_json_for_sort()
-    if sort_info is not None:
-        print "using custom sort! " + repr(sort)
-        sort =  prepare_json_for_custom_sort(sort_info)
-    motif_str = " ".join(motif_list)
-    j_dict={
-        "sort" : sort["sort"],
-        "query" : {
-            "bool" : {
-                 "must" : {
-                   "match" : {
-                       "motif" : { "query": motif_str }
-                   }
-                  },
-                 "filter" : pvalue_filter["filter"]
-            } 
-        }
-    } 
-    return json.dumps(j_dict)
-
-def prepare_json_for_encode_tf_query(encode_prefix, pval_dict, sort_info=None):
-
-    pvalue_filter = use_appropriate_pvalue_filter_function(pval_dict)
-    sort = prepare_json_for_sort()
-    if sort_info is not None:
-        print "using custom sort! " + repr(sort)
-        sort =  prepare_json_for_custom_sort(sort_info)
-    j_dict={
-        "sort" : sort["sort"],
-        "query" : {
-            "bool" : {
-                 "must" : {
-                   "match_phrase_prefix" : {
-                       "motif" :   encode_prefix 
-                    }
-                   
-                  },
-                 "filter" : pvalue_filter["filter"]
-            } 
-        }
-    } 
-    return json.dumps(j_dict)
-
-
 #  Web interface translates motifs to transcription factors and vice-versa
 #  this API expects motif values. 
 @api_view(['POST'])
 def search_by_trans_factor(request):
-    pvalue_dict = get_pvalue_dict(request)
-
-    #If we're suppsoed to check for a valid ENCODE motif, we'll see the flag:
-    if request.data.get('tf_library') == 'encode':
-        return search_by_encode_trans_factor(request,  pvalue_dict)
-
-    #currently specific to JASPAR.
-    motif_or_error_response = check_and_return_motif_value(request)
-    if not type(motif_or_error_response) == list:
-        return motif_or_error_response   #it's an error response    
-
-    motif_list = motif_or_error_response       # above established this is a motif. 
-  
-    sort_order = request.data.get('sort_order')
-    es_query = prepare_json_for_tf_query(motif_list, pvalue_dict, sort_info=sort_order)
-    
-    es_params = { 'from_result' : request.data.get('from_result'),
-                  'page_size' : request.data.get('page_size') }
+    es_query = TransFactorQuery(request).get_query()
+    es_params = setup_paging_parameters(request) 
     return query_elasticsearch(es_query, es_params)
-
-
-
-#There is no ENCODE data right now...
-#TODO: thorough testing with actual ENCODE data.
-#This is here to avoid reworking the logic in search_by_trans_factor
-#add custom sorting!
-def search_by_encode_trans_factor(request,  pvalue_dict):
-    motif_prefix = request.data.get('motif')
-    sort_order = request.data.get('sort_order')
-    es_query = prepare_json_for_encode_tf_query(motif_prefix, pvalue_dict, sort_info=sort_order) 
-    #print "query for encode TF : " + es_query
-    es_params = { 'from_result' : request.data.get('from_result'),
-                  'page_size'   : request.data.get('page_size')  }
-    return query_elasticsearch(es_query, es_params)
-
 
 #TODO: complete adapting this function; it should WORK.
 def get_position_of_gene_by_name(gene_name):
