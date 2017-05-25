@@ -69,12 +69,11 @@ class ElasticsearchAtsnpQuery(object):
            })
        return dict_for_filter 
 
+    #For sort, 'coordinate' means 'chr' and 'pos'
+    #Replace coordinate with the fields chr and pos, in that order.
     def prepare_json_for_custom_sort(self, sort_orders):
-        #'coordinate' means 'chr' and 'pos'
         so = sort_orders['sort']
         for i, x  in enumerate(so):
-            print "i: " + str(i)
-            print "x: " + str(x)
             if x.keys()[0] == 'coordinate':
                 print "translating" #  x['coordinate']
                 #get a copy of the order dict
@@ -82,7 +81,6 @@ class ElasticsearchAtsnpQuery(object):
                 pos = { u'pos' : x['coordinate'] }
                 where_to_put = i + 1
                 del x['coordinate']
-                print repr(so)
                 break
         so.insert(where_to_put, pos)
         sort_orders['sort'] = so
