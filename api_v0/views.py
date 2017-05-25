@@ -293,33 +293,6 @@ def check_and_aggregate_gl_search_params(request):
     return gl_coords
 
 
-#try to use 'filter' queries to speed this up.
-def prepare_json_for_gl_query(gl_coords, pval_rank):
-    pvalue_filter = prepare_json_for_pvalue_filter(pval_rank)
-    sort = prepare_json_for_sort()
-    j_dict = {   
-        "sort" : sort["sort"], 
-        "query":
-        {
-            "bool" : {
-                "must" : [
-                   {
-                     "range": {
-                          "pos" : {  "from" : gl_coords['start_pos'], 
-                                       "to" : gl_coords['end_pos'] }
-                      }
-                   },
-                   { "term" : { "chr" : gl_coords['chromosome'] } }
-                ],
-                "filter":  pvalue_filter["filter"]
-            }
-        }
-    }
-    json_out = json.dumps(j_dict)
-    return json_out
-
-
-
 
 #try to use 'filter' queries to speed this up.
 def prepare_json_for_gl_query_multi_pval(gl_coords, pval_dict, sort_info=None):
