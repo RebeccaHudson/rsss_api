@@ -265,34 +265,6 @@ def search_by_snpid(request):
                   'page_size'   : request.data.get('page_size')}
     return query_elasticsearch(es_query, es_params)
   
-#does this really get used?
-#YES. It does not handle anything with/about pvalues.
-def check_and_aggregate_gl_search_params(request):
-    if not all (k in request.data.keys() for k in ("chromosome","start_pos", "end_pos")):
-        return Response('Must include chromosome, start, and end position.',
-                       status = status.HTTP_400_BAD_REQUEST)
-    gl_coords =  {}
-    gl_coords['start_pos'] = request.data['start_pos']
-    gl_coords['end_pos'] = request.data['end_pos']
-    gl_coords['chromosome'] =  request.data['chromosome']  # TODO: check for invlaid chromosome
-    #Chromosomes are numeric as stored in the minimized data set.
-    gl_coords['chromosome'] = gl_coords['chromosome'].replace('ch', '') 
-    #does it explcitly need to be an int?
-
-    if not gl_coords['chromosome'].isdigit():   #could be pulled out into another function.
-        non_numeric_chromosomes = { 'X' : 23, 'Y': 24, 'M': 25, 'MT': 25 }
-        gl_coords['chromosome'] = non_numeric_chromosomes[gl_coords['chromosome']]
-
-    if gl_coords['end_pos'] < gl_coords['start_pos']:
-        return Response('Start position is less than end position.',
-                      status = status.HTTP_400_BAD_REQUEST)
-   
-    if gl_coords['end_pos'] - gl_coords['start_pos'] > settings.HARD_LIMITS['MAX_BASES_IN_GL_REQUEST']:
-        return Response('Requested region is too large', 
-                       status=status.HTTP_400_BAD_REQUEST)
-    return gl_coords
-
-
 
 #try to use 'filter' queries to speed this up.
 def prepare_json_for_gl_query_multi_pval(gl_coords, pval_dict, sort_info=None):
