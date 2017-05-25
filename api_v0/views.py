@@ -17,6 +17,7 @@ import json
 import random
 
 from DataReconstructor import DataReconstructor
+from GenomicLocationQuery import GenomicLocationQuery
 
 #TRY to remove this.
 # TODO: return an error if a p-value input is invalid.
@@ -150,14 +151,19 @@ def prepare_json_for_custom_sort(sort_orders):
     sort_orders['sort'] = so
     #sort_orders['sort']['coordinate']
     #any processing required?
+    print "supposed to be completed sort order: " + repr(sort_orders)
     return sort_orders
 
 
-def prepare_snpid_search_query_from_snpid_chunk(snpid_list, pvalue_dict):
+def prepare_snpid_search_query_from_snpid_chunk(snpid_list, pvalue_dict, sort_info=None):
     #snp_list = snpid_list 
+
     snp_list = [ int(m.replace('rs', '')) for m in snpid_list]
     pvalue_filter = use_appropriate_pvalue_filter_function(pvalue_dict)
     sort = prepare_json_for_sort()
+    if sort_info is not None:
+        print "using custom sort! " + repr(sort)
+        sort =  prepare_json_for_custom_sort(sort_info)
     query_dict = {
       "sort" : sort["sort"],
       "query": {
@@ -180,7 +186,7 @@ def prepare_snpid_search_query_from_snpid_chunk(snpid_list, pvalue_dict):
 #detect and respond to this situation appropriately.
 def find_working_es_url():
     found_working = False
-    name_of_es_index = 'atsnp_data_tiny'
+    name_of_es_index = 'atsnp_reduced_test'
     i = 0 
     while found_working is False:
         #TODO: change back to main data store. (atsnp_data_tiny -> atsnp_data)
@@ -251,8 +257,10 @@ def setup_es_url(data_type, url_base, operation="_search",
 def search_by_snpid(request):
     pvalue_dict = get_pvalue_dict(request)
     snpid_list = request.data['snpid_list']
+    sort_order = request.data.get('sort_order')
     es_query = prepare_snpid_search_query_from_snpid_chunk(snpid_list,
-                                                            pvalue_dict)  
+                                                        pvalue_dict, 
+                                                        sort_info=sort_order)  
     es_params = { 'from_result' : request.data.get('from_result'),
                   'page_size'   : request.data.get('page_size')}
     return query_elasticsearch(es_query, es_params)
@@ -376,16 +384,25 @@ def search_by_genomic_location(request):
     gl_coords = gl_coords_or_error_response
     from_result = request.data.get('from_result')
     page_size = request.data.get('page_size')
+    sort_order = request.data.get('sort_order')
 
     # The following code was copied into the bottom of search_by_snpid_window
     # TODO: consider DRYing up this part of the code
     es_query = prepare_json_for_gl_query_multi_pval(gl_coords, pvalue_dict)
-    es_params = { 'from_result' : from_result, 
-                  'page_size'   : page_size }
 
+    es_params = setup_paging_parameters(request) 
+    es_query = GenomicLocationQuery(request).get_query()
+    #print "this is the not-working query " + repr(es_query)
     #url stuff is handled in query_elasticsearch.
+    #print "about to gl query elasticsearch " + repr(es_query)
     return query_elasticsearch(es_query, es_params)
 
+#paging parameters are used on the ES URL.
+def setup_paging_parameters(request):
+    params = {}
+    for one_key in ['from_result', 'page_size']:
+        params[one_key] = request.data.get(one_key)
+    return params
 
 #TODO: factor this out into a 'helper' file, it's not strictly a view.
 #es_params is a dict with from_result and page_size
@@ -443,9 +460,13 @@ def use_appropriate_pvalue_filter_function(pval_dict):
     pvalue_filter = prepare_json_for_pvalue_filter_directional(pval_dict)
     return pvalue_filter
 
-def prepare_json_for_tf_query(motif_list, pval_dict):
+def prepare_json_for_tf_query(motif_list, pval_dict, sort_info=None):
+
     pvalue_filter = use_appropriate_pvalue_filter_function(pval_dict)
     sort = prepare_json_for_sort()
+    if sort_info is not None:
+        print "using custom sort! " + repr(sort)
+        sort =  prepare_json_for_custom_sort(sort_info)
     motif_str = " ".join(motif_list)
     j_dict={
         "sort" : sort["sort"],
@@ -462,9 +483,13 @@ def prepare_json_for_tf_query(motif_list, pval_dict):
     } 
     return json.dumps(j_dict)
 
-def prepare_json_for_encode_tf_query(encode_prefix, pval_dict):
+def prepare_json_for_encode_tf_query(encode_prefix, pval_dict, sort_info=None):
+
     pvalue_filter = use_appropriate_pvalue_filter_function(pval_dict)
     sort = prepare_json_for_sort()
+    if sort_info is not None:
+        print "using custom sort! " + repr(sort)
+        sort =  prepare_json_for_custom_sort(sort_info)
     j_dict={
         "sort" : sort["sort"],
         "query" : {
@@ -498,7 +523,9 @@ def search_by_trans_factor(request):
         return motif_or_error_response   #it's an error response    
 
     motif_list = motif_or_error_response       # above established this is a motif. 
-    es_query = prepare_json_for_tf_query(motif_list, pvalue_dict)
+  
+    sort_order = request.data.get('sort_order')
+    es_query = prepare_json_for_tf_query(motif_list, pvalue_dict, sort_info=sort_order)
     
     es_params = { 'from_result' : request.data.get('from_result'),
                   'page_size' : request.data.get('page_size') }
@@ -509,9 +536,11 @@ def search_by_trans_factor(request):
 #There is no ENCODE data right now...
 #TODO: thorough testing with actual ENCODE data.
 #This is here to avoid reworking the logic in search_by_trans_factor
+#add custom sorting!
 def search_by_encode_trans_factor(request,  pvalue_dict):
     motif_prefix = request.data.get('motif')
-    es_query = prepare_json_for_encode_tf_query(motif_prefix, pvalue_dict) 
+    sort_order = request.data.get('sort_order')
+    es_query = prepare_json_for_encode_tf_query(motif_prefix, pvalue_dict, sort_info=sort_order) 
     #print "query for encode TF : " + es_query
     es_params = { 'from_result' : request.data.get('from_result'),
                   'page_size'   : request.data.get('page_size')  }
@@ -638,7 +667,7 @@ def search_by_window_around_snpid(request):
         gl_coords['start_pos'] = 0
 
     #TRY ADDING THE DIRECTIONAL HERE?
-
+    
     es_query = prepare_json_for_gl_query_multi_pval(gl_coords, pvalue_dict)
     #print "es query for snpid window search " + es_query
    
