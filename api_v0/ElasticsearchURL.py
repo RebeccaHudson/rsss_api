@@ -42,9 +42,20 @@ class ElasticsearchURL(object):
     #     return url
     def __init__(self, data_type, operation="_search", from_result=None, page_size=None):
          url_base  = self.find_working_es_url()
-         url = url_base     + "/atsnp_reduced_test/" \
-                            + data_type      \
-                            + "/" + operation
+         name_of_index = None
+
+         if data_type == 'atsnp_output':
+             name_of_index = 'atsnp_reduced_test'          
+         elif data_type == 'gencode_gene_symbols':
+             name_of_index = 'gencode_genes'
+
+         #url = url_base     + "/atsnp_reduced_test/" \
+         #                   + data_type      \
+         #                   + "/" + operation
+         url = "/".join([url_base, name_of_index, data_type, operation])
+         #url = url_base     + "/atsnp_reduced_test/" \
+         #                   + data_type      \
+         #                   + "/" + operation
          if page_size is None:
              page_size  =   settings.ELASTICSEARCH_PAGE_SIZE
          url = url + "?size=" + str(page_size)

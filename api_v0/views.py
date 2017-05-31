@@ -21,6 +21,7 @@ from DataReconstructor import DataReconstructor
 from GenomicLocationQuery import GenomicLocationQuery
 from TransFactorQuery import TransFactorQuery
 from SnpidWindowQuery import SnpidWindowQuery
+from GeneNameQuery import GeneNameQuery
 
 #TRY to remove this.
 # TODO: return an error if a p-value input is invalid.
@@ -318,9 +319,7 @@ def return_any_hits(data_returned):
 
 @api_view(['POST'])
 def search_by_genomic_location(request):
-    es_params = setup_paging_parameters(request) 
-    es_query = GenomicLocationQuery(request).get_query()
-    return query_elasticsearch(es_query, es_params)
+    return setup_and_run_query(request, GenomicLocationQuery)
 
 #paging parameters are used on the ES URL.
 def setup_paging_parameters(request):
@@ -433,94 +432,42 @@ def get_position_of_gene_by_name(gene_name):
 
 @api_view(['POST'])
 def search_by_gene_name(request):
-    gene_name = request.data.get('gene_name')
-    window_size = request.data.get('window_size')
-    pvalue_dict = get_pvalue_dict(request)
-    sort_order = request.data.get('sort_order')
+    return setup_and_run_query(request, GeneNameQuery) 
+    #gene_name = request.data.get('gene_name')
+    #window_size = request.data.get('window_size')
+    #pvalue_dict = get_pvalue_dict(request)
+    #sort_order = request.data.get('sort_order')
 
-    print "sort order: " + repr(sort_order)
-    #load as json? or is it already?
+    #print "sort order: " + repr(sort_order)
+    ##load as json? or is it already?
 
-    if window_size is None:
-        window_size = 0
+    #if window_size is None:
+    #    window_size = 0
 
-    if gene_name is None:
-        return Response('No gene name specified.', 
-                        status = status.HTTP_400_BAD_REQUEST)
+    #if gene_name is None:
+    #    return Response('No gene name specified.', 
+    #                    status = status.HTTP_400_BAD_REQUEST)
 
-    es_params = {   'page_size' :   request.data.get('page_size'),
-                    'from_result' : request.data.get('from_result') }
+    #es_params = {   'page_size' :   request.data.get('page_size'),
+    #                'from_result' : request.data.get('from_result') }
 
-    #TODO: refactor the way that this checks for gene names in ES.
-    gl_coords = get_position_of_gene_by_name(gene_name)
-    if gl_coords is None: 
-        return Response('Gene name not found in database.', 
-                        status = status.HTTP_400_BAD_REQUEST)
-    #print "continued gene name search after Respnose.."
-    gl_coords['start_pos'] = int(gl_coords['start_pos']) - window_size
-    gl_coords['end_pos'] = int(gl_coords['end_pos']) + window_size
+    ##TODO: refactor the way that this checks for gene names in ES.
+    #gl_coords = get_position_of_gene_by_name(gene_name)
+    #if gl_coords is None: 
+    #    return Response('Gene name not found in database.', 
+    #                    status = status.HTTP_400_BAD_REQUEST)
+    ##print "continued gene name search after Respnose.."
+    #gl_coords['start_pos'] = int(gl_coords['start_pos']) - window_size
+    #gl_coords['end_pos'] = int(gl_coords['end_pos']) + window_size
 
-    #print "gl coordinates " + repr(gl_coords)
-    es_query = prepare_json_for_gl_query_multi_pval(gl_coords, pvalue_dict, sort_info=sort_order)
-    return query_elasticsearch(es_query, es_params)
+    ##print "gl coordinates " + repr(gl_coords)
+    #es_query = prepare_json_for_gl_query_multi_pval(gl_coords, pvalue_dict, sort_info=sort_order)
+    #return query_elasticsearch(es_query, es_params)
 
 
 @api_view(['POST'])
 def search_by_window_around_snpid(request):
-    #one_snpid = request.data.get('snpid')
-    #numeric_snpid = one_snpid.replace('rs', '') #to compensate for our optimizations
-    #window_size = request.data.get('window_size')
-    #pvalue_dict = get_pvalue_dict(request)
-    #
-    #if window_size is None:
-    #    window_size = 0
- 
-    #if numeric_snpid is None: 
-    #    return Response('No snpid specified.', 
-    #                     status = status.HTTP_400_BAD_REQUEST)
-
-    ##This URL is for looking up the genomic location of a SNPid. 
-    ##has to be re-prepared for pageable search.
-    #es_url = prepare_es_url('atsnp_output') 
-
-
-
-    ##if elasticsearch is down, find out now. 
-    #if es_url is None:
-    #    return Response('Elasticsearch is down, please contact admins.', 
-    #                     status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-    ##query_for_snpid_location = {"query":{"match":{"snpid":one_snpid }}}
-    #query_for_snpid_location = {"query":{"match":{"snpid":numeric_snpid }}}
-    #es_query = json.dumps(query_for_snpid_location)
-    #es_result = requests.post(es_url, data=es_query, timeout=100)
-    #records_for_snpid = get_data_out_of_es_result(es_result)
-
-    #if len(records_for_snpid['data']) == 0: 
-    #    return Response('No data for snpid ' + one_snpid + '.', 
-    #                    status = status.HTTP_204_NO_CONTENT)
-
-    #record_to_pick = records_for_snpid['data'][0]
-    #record_to_pick['chr'] = record_to_pick['chr'].replace('ch', '') #Account for minimized data
-    #gl_coords = { 'chromosome' :  record_to_pick['chr'],
-    #              'start_pos'  :  record_to_pick['pos'] - window_size,
-    #              'end_pos'    :  record_to_pick['pos'] + window_size
-    #             }
-    #if gl_coords['start_pos'] < 0:
-    #    #: TODO consider adding a warning here if this happens?
-    #    gl_coords['start_pos'] = 0
-
-    ##TRY ADDING THE DIRECTIONAL HERE?
-    #
-    #es_query = prepare_json_for_gl_query_multi_pval(gl_coords, pvalue_dict)
-    ##print "es query for snpid window search " + es_query
     return setup_and_run_query(request, SnpidWindowQuery) 
-    #es_params = { 'page_size' : request.data.get('page_size'),
-    #              'from_result' : request.data.get('from_result') }
-    ##This probably isn't the right place to put the from result
-    #es_query = SnpidWindowQuery(request).get_query()
-    #return query_elasticsearch(es_query, es_params)
-
 
 def get_one_item_from_elasticsearch_by_id(id_of_item):
     #copied verbatim from the above method; should be refactored.

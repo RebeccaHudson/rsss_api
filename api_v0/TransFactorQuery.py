@@ -39,8 +39,7 @@ class TransFactorQuery(ElasticsearchAtsnpQuery):
         for motif in one_or_more_motifs: 
             test_match = re.match(r'M(\w+[.])+\w+', motif )
             if test_match is None: 
-                return Response('No well-formed motifs.', 
-                              status = status.HTTP_400_BAD_REQUEST) 
+                return InvalidQueryError('No well-formed motifs.')
         return " ".join(one_or_more_motifs)
  
     #ENCODE TF searches specify only a prefix, not the whole motif name. 
