@@ -27,25 +27,6 @@ from SnpidQuery import SnpidQuery
 #TRY to remove this.
 # TODO: return an error if a p-value input is invalid.
 
-def get_pvalue_dict(request):
-    pv_dict = {}
-    #print "request " + str(request.data)
-    for pv_name in ['rank', 'ref', 'snp']:
-        key  = "_".join(['pvalue', pv_name])
-        if request.data.has_key(key):
-            pv_dict[key] = request.data[key]
-
-    if 'pvalue_rank'not in pv_dict:
-        pv_dict[key] = settings.DEFAULT_P_VALUE
- 
-    if request.data.has_key('pvalue_snp_direction'):
-       pv_dict['pvalue_snp_direction'] = request.data['pvalue_snp_direction'] 
-
-    if request.data.has_key('pvalue_ref_direction'):
-       pv_dict['pvalue_ref_direction'] = request.data['pvalue_ref_direction']
-
-    return pv_dict     
-
 
 #pull the _id field here; put it in with the rest of the data.
 def get_data_out_of_es_result(es_result):
@@ -73,59 +54,6 @@ def get_data_out_of_es_result(es_result):
     return { 'data' : None, 'hitcount': 0 } 
 
 
-
-def prepare_json_for_pvalue_filter(pvalue_rank):
-   dict_for_filter = { "filter": {
-       "range" : {
-           "pval_rank": {
-               "lte":  str(pvalue_rank) 
-           }
-       }
-   }  }
-   return dict_for_filter 
-
-#TODO: make a copy of this function that can take the pvalue_snp_direction
-#       and the pvalue_ref_direction and applies the filter directions.
-#       ONLY apply the filter directions if the pvalue_ref and pvalue_snp 
-#       values are defined in their respective inputs. (see code below)
-def prepare_json_for_pvalue_filter_directional(pvalue_dict):
-   #pvalue_snp is missing at this point..
-   #print "prior to processing " + str(pvalue_dict)
-   dict_for_filter = { "filter": [
-     {
-       "range" : {
-           "pval_rank": {
-               "lte":  str(pvalue_dict['pvalue_rank']) 
-           }
-       }
-     }
-   ]
-   }
-   if 'pvalue_ref' in  pvalue_dict:
-       pvalue_ref_direction = pvalue_dict['pvalue_ref_direction']
-       if pvalue_ref_direction == 'lt' and pvalue_dict['pvalue_ref'] == 0:
-           pvalue_ref_direction = 'lte' 
-       #either lte or gte
-       dict_for_filter['filter'].append({
-           "range" : {
-               "pval_ref": {
-                   pvalue_ref_direction:  str(pvalue_dict['pvalue_ref']) 
-               }
-           }
-       })
-   if 'pvalue_snp' in pvalue_dict:  
-       pvalue_snp_direction = pvalue_dict['pvalue_snp_direction']
-       if pvalue_snp_direction == 'lt' and pvalue_dict['pvalue_snp'] == 0:
-           pvalue_snp_direction = 'lte' #don't exclude records w/ pvalue = 0
-       dict_for_filter['filter'].append({
-       "range" : {
-           "pval_snp": {
-               pvalue_snp_direction:  str(pvalue_dict['pvalue_snp']) 
-                      }
-                 }
-       })
-   #print "(changed) alternative pvalue_filter: " + str(dict_for_filter)
-   return dict_for_filter 
 
 def prepare_json_for_sort():
     dict_for_sort = {
@@ -158,30 +86,6 @@ def prepare_json_for_custom_sort(sort_orders):
     #any processing required?
     print "supposed to be completed sort order: " + repr(sort_orders)
     return sort_orders
-
-
-def prepare_snpid_search_query_from_snpid_chunk(snpid_list, pvalue_dict, sort_info=None):
-    #snp_list = snpid_list 
-
-    snp_list = [ int(m.replace('rs', '')) for m in snpid_list]
-    pvalue_filter = use_appropriate_pvalue_filter_function(pvalue_dict)
-    sort = prepare_json_for_sort()
-    if sort_info is not None:
-        print "using custom sort! " + repr(sort)
-        sort =  prepare_json_for_custom_sort(sort_info)
-    query_dict = {
-      "sort" : sort["sort"],
-      "query": {
-        "bool": {
-          "must": {
-               "terms": { "snpid" : snp_list }
-          },
-          "filter" : pvalue_filter["filter"]
-        }
-      }
-    }
-    print("query " + json.dumps(query_dict) )
-    return json.dumps(query_dict) 
 
 #sometimes one of the ES urls is non-responsive.
 #detect and respond to this situation appropriately.
@@ -260,39 +164,6 @@ def search_by_snpid(request):
     return setup_and_run_query(request, SnpidQuery)
 
 #try to use 'filter' queries to speed this up.
-def prepare_json_for_gl_query_multi_pval(gl_coords, pval_dict, sort_info=None):
-    pvalue_filter = None
-    #print "whole contents of pval_dict: " + repr(pval_dict)
-    #THIS is temporary until I have directional on everything.
-    #print "gl query: pval dict: " + repr(pval_dict)
-    pvalue_filter = use_appropriate_pvalue_filter_function(pval_dict)
-
-    sort = prepare_json_for_sort()
-    if sort_info is not None:
-        print "using custom sort! " + repr(sort)
-        sort =  prepare_json_for_custom_sort(sort_info)
-
-    j_dict = {   
-        "sort" : sort["sort"], 
-        "query":
-        {
-            "bool" : {
-                "must" : [
-                   {
-                     "range": {
-                          "pos" : {  "from" : gl_coords['start_pos'], "to" : gl_coords['end_pos'] }
-                      }
-                   },
-                   { "term" : { "chr" : gl_coords['chromosome'] } }
-                ],
-                "filter":  pvalue_filter["filter"]
-            }
-        }
-    }
-    json_out = json.dumps(j_dict)
-    #print "dict before query : " + json_out
-    return json_out
-
 
 
 def return_any_hits(data_returned):
@@ -353,11 +224,6 @@ def query_elasticsearch(completed_query, es_params):
             return return_any_hits(data_back)
 
 #Apply directions for the SNP and reference pvalue filters if present.
-def use_appropriate_pvalue_filter_function(pval_dict):
-    pvalue_filter = None 
-    #directions always go in; even if the number is not present.
-    pvalue_filter = prepare_json_for_pvalue_filter_directional(pval_dict)
-    return pvalue_filter
 
 def setup_and_run_query(request, query_class ):
     try:
