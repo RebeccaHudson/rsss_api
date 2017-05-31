@@ -22,6 +22,7 @@ from GenomicLocationQuery import GenomicLocationQuery
 from TransFactorQuery import TransFactorQuery
 from SnpidWindowQuery import SnpidWindowQuery
 from GeneNameQuery import GeneNameQuery
+from SnpidQuery import SnpidQuery
 
 #TRY to remove this.
 # TODO: return an error if a p-value input is invalid.
@@ -257,15 +258,16 @@ def setup_es_url(data_type, url_base, operation="_search",
 #a refactor of scrores_row_list
 @api_view(['POST'])
 def search_by_snpid(request):
-    pvalue_dict = get_pvalue_dict(request)
-    snpid_list = request.data['snpid_list']
-    sort_order = request.data.get('sort_order')
-    es_query = prepare_snpid_search_query_from_snpid_chunk(snpid_list,
-                                                        pvalue_dict, 
-                                                        sort_info=sort_order)  
-    es_params = { 'from_result' : request.data.get('from_result'),
-                  'page_size'   : request.data.get('page_size')}
-    return query_elasticsearch(es_query, es_params)
+    return setup_and_run_query(request, SnpidQuery)
+    #pvalue_dict = get_pvalue_dict(request)
+    #snpid_list = request.data['snpid_list']
+    #sort_order = request.data.get('sort_order')
+    #es_query = prepare_snpid_search_query_from_snpid_chunk(snpid_list,
+    #                                                    pvalue_dict, 
+    #                                                    sort_info=sort_order)  
+    #es_params = { 'from_result' : request.data.get('from_result'),
+    #              'page_size'   : request.data.get('page_size')}
+    #return query_elasticsearch(es_query, es_params)
   
 
 #try to use 'filter' queries to speed this up.
