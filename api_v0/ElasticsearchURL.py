@@ -3,43 +3,19 @@ from api_v0.serializers import ScoresRowSerializer
 from DataReconstructor import DataReconstructor
 from django.conf import settings
 import requests
+import random
 import json
+
 #make all the stuff in views.py use this class.
+#NOTE: if it turns out that making a query to check if a server is response is 
+#TOO overhead-intensive, use the following algorithm:
+#  Fully formulate the URL as it would be used (randomly shuffle the ES boxes)
+#     make the request as-is, and try/catch to detect timeout and/or connection errors.
+#  If there's a dropped request; then pop the next machine off of the shuffled list of
+#     available ES nodes; try that URL. 
+#  Either end up returning the result set; or a 500 status Response with a descriptive
+#  message about Elasticsearch being down.
 class ElasticsearchURL(object):
-    #def prepare_es_url(self, data_type, operation="_search", from_result=None, 
-    #                   page_size=None):
-    #     url_base = find_working_es_url()
-    #     if url_base == None:
-    #         return None
-    #     #TODO: change back to main data store. (atsnp_data_tiny -> atsnp_data)
-    #     url = url_base     + "/atsnp_reduced_test/" \
-    #                        + data_type      \
-    #                        + "/" + operation
-    #     if page_size is None:
-    #         page_size  =   settings.ELASTICSEARCH_PAGE_SIZE
-    #     url = url + "?size=" + str(page_size)
-
-    #     if from_result is not None:
-    #         url = url + "&from=" + str(from_result) 
-    #     print "es_url : " + url
-    #     return url
-
-    #does not sniff out if the URL works, just constructs it based on 
-    #a pre-selected base URL.
-    #def setup_es_url(self, data_type, url_base, operation="_search", 
-    #                 from_result=None, page_size=None):
-    #     #url = url_base     + "/atsnp_data_tiny/" \
-    #     #                   + data_type      \
-    #     #                   + "/" + operation
-    #     url = url_base     + "/atsnp_reduced_test/" \
-    #                        + data_type      \
-    #                        + "/" + operation
-    #     if page_size is None:
-    #         page_size  =   settings.ELASTICSEARCH_PAGE_SIZE
-    #     url = url + "?size=" + str(page_size)
-    #     if from_result is not None:
-    #         url = url + "&from=" + str(from_result) 
-    #     return url
     def __init__(self, data_type, operation="_search", from_result=None, page_size=None):
          url_base  = self.find_working_es_url()
          name_of_index = None
@@ -49,48 +25,43 @@ class ElasticsearchURL(object):
          elif data_type == 'gencode_gene_symbols':
              name_of_index = 'gencode_genes'
 
-         #url = url_base     + "/atsnp_reduced_test/" \
-         #                   + data_type      \
-         #                   + "/" + operation
          url = "/".join([url_base, name_of_index, data_type, operation])
-         #url = url_base     + "/atsnp_reduced_test/" \
-         #                   + data_type      \
-         #                   + "/" + operation
+
          if page_size is None:
              page_size  =   settings.ELASTICSEARCH_PAGE_SIZE
+
          url = url + "?size=" + str(page_size)
+
          if from_result is not None:
              url = url + "&from=" + str(from_result) 
+
          self.url = url
 
-
     def find_working_es_url(self):
-       found_working = False
        name_of_es_index = 'atsnp_reduced_test'
-       i = 0 
-       while found_working is False:
+       machines_to_try = settings.ELASTICSEARCH_URLS[:]
+       random.shuffle(machines_to_try)
+       while len(machines_to_try) > 0:
            #TODO: change back to main data store. (atsnp_data_tiny -> atsnp_data)
-           url_to_try = settings.ELASTICSEARCH_URLS[i] + \
-                         '/' + name_of_es_index  + '/atsnp_output/_search?size=1'
-           print "trying this url " + url_to_try
+           machine_to_try = machines_to_try.pop()
+           url_to_try = '/'.join([machine_to_try,name_of_es_index,
+                                  'atsnp_output','_search?size=1'])
+           #print "trying this url " + url_to_try
            es_check_response = None
            try:
-               es_check_response = requests.get(url_to_try, timeout=300)  
+               es_check_response = requests.get(url_to_try, timeout=50)  
            except requests.exceptions.Timeout:
                print "request for search at : " + url_to_try +  " timed out."  
            except requests.exceptions.ConnectionError:
                print "request for " + url_to_try + " has been refused"
            else:        
                #print "url " + url_to_try + " es_check_response" + str(json.loads(es_check_response.text))
-               es_check_data = json.loads(es_check_response.text)
-               return settings.ELASTICSEARCH_URLS[i]
-           i += 1
-           if i > 2: 
-               return None
+               #es_check_data = json.loads(es_check_response.text)
+               return machine_to_try
+           return None
 
     def get_url(self):
         return self.url
-
 
 class ElasticsearchResult(object):
     #returns a Response OR the data.
@@ -113,30 +84,6 @@ class ElasticsearchResult(object):
 
     def get_result(self):
         return self.result
-
-    # def get_data_out_of_es_result(es_result):
-    #     es_data = es_result.json()
-    #     #print("es result : " + str(es_data))
-    #     #print "es ruesult keys: "  + str(es_data.keys())
-    #     if 'hits' in es_data.keys():
-    #         data =  [ x['_source'] for x in es_data['hits']['hits'] ]
-    #         data_w_id = []
-    #         for one_hit in es_data['hits']['hits']:
-    #             one_hit_data = one_hit['_source']
-    #             one_hit_data['id'] = one_hit['_id']
-    #             if 'ref_and_snp_strand' in one_hit_data:
-    #                 one_hit_data = DataReconstructor(one_hit_data).get_reconstructed_record()
-    #             data_w_id.append(one_hit_data) 
-    #         #print "data w/ id " + repr(data_w_id)
-    #         hitcount = es_data['hits']['total']
-    #         #try this? data['_id'] = es_data[' 
-    #         #how should I include the _id field?
-    #         #print "data : " + repr(data)
-    #         return { 'data':data_w_id, 'hitcount': hitcount}
-    #     else:
-    #         print "no hits, then what is it? "
-    #         print "es result : " + str(es_data)
-    #     return { 'data' : None, 'hitcount': 0 }
 
     def get_data_out_of_es_result(self, result):
         print "result  " + repr(result)
