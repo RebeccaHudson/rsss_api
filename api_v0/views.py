@@ -53,40 +53,6 @@ def get_data_out_of_es_result(es_result):
         print "es result : " + str(es_data)
     return { 'data' : None, 'hitcount': 0 } 
 
-
-
-def prepare_json_for_sort():
-    dict_for_sort = {
-                      "sort" : [ { "pval_rank" : { "order" : "asc" } }, 
-                                 { "chr"       : { "order" : "asc" } },
-                                 { "pos"       : { "order" : "asc" } } ]
-                    }
-    return dict_for_sort
-
-#TODO: replace prepare_for_sort completely with the following method.
-def prepare_json_for_custom_sort(sort_orders):
-    print "sort order? " + repr(sort_orders)
-    #'coordinate' means 'chr' and 'pos'
-    so = sort_orders['sort']
-    for i, x  in enumerate(so):
-        print "i: " + str(i)
-        print "x: " + str(x)
-        if x.keys()[0] == 'coordinate':
-            print "translating" #  x['coordinate']
-            #get a copy of the order dict
-            x[u'chr'] = x['coordinate']
-            pos = { u'pos' : x['coordinate'] }
-            where_to_put = i + 1
-            del x['coordinate']
-            print repr(so)
-            break
-    so.insert(where_to_put, pos)
-    sort_orders['sort'] = so
-    #sort_orders['sort']['coordinate']
-    #any processing required?
-    print "supposed to be completed sort order: " + repr(sort_orders)
-    return sort_orders
-
 #sometimes one of the ES urls is non-responsive.
 #detect and respond to this situation appropriately.
 def find_working_es_url():
@@ -116,8 +82,6 @@ def find_working_es_url():
 #prepares elasticsearch urls
 #from result should just be passed in from whatever is using this API.
 #we'll have to ensure that any such user has sufficient information to do so.
-
-
 #Should be a class...
 
 #TODO: Make this not place unneeded requests on ES. Only hit > 1 URL
@@ -162,9 +126,6 @@ def setup_es_url(data_type, url_base, operation="_search",
 @api_view(['POST'])
 def search_by_snpid(request):
     return setup_and_run_query(request, SnpidQuery)
-
-#try to use 'filter' queries to speed this up.
-
 
 def return_any_hits(data_returned):
     if data_returned['hitcount'] == 0:
@@ -244,50 +205,9 @@ def setup_and_run_query(request, query_class ):
 def search_by_trans_factor(request):
    return setup_and_run_query(request, TransFactorQuery)
 
-#TODO: complete adapting this function; it should WORK.
-def get_position_of_gene_by_name(gene_name):
-    j_dict = { "query" : {
-                   "match" : {
-                       "gene_symbol" : gene_name    
-                   }
-                }
-             } 
-
-    json_query = json.dumps(j_dict)
-    #es_url = prepare_es_url('gencode_gene_symbols') 
-   
-    url_base = find_working_es_url()
-    operation = '_search'
-    data_type = 'gencode_gene_symbols'
-    es_url = url_base  + "/gencode_genes/" \
-                        + data_type      \
-                        + "/" + operation
-    #should be just one result..
-    #print "query : " + json_query
-    #print "es url " + es_url
-    es_result = requests.post(es_url, data=json_query, timeout=50) 
-    gene_coords = get_data_out_of_es_result(es_result)
-    if gene_coords['hitcount'] == 0: 
-         #print "gene not found : " + gene_name
-         return None
-    gc = gene_coords['data'][0]
- 
-    gc['chr'] = gc['chr'].replace('chr', '')
-    if not gc['chr'].isdigit():   #could be pulled out into another function.
-        non_numeric_chromosomes = { 'X' : 23, 'Y': 24, 'M': 25, 'MT': 25 }
-        gc['chr'] = non_numeric_chromosomes[gc['chr']]
-
-    gl_coords = { 'chromosome': gc['chr'], #gc['chr'].replace('chr', ''), # gc['chr'].replace('hr', 'h') ,
-                  'start_pos' : gc['start_pos'] ,
-                  'end_pos'   : gc['end_pos']     }
-    return gl_coords 
-     
-
-
 @api_view(['POST'])
 def search_by_gene_name(request):
     return setup_and_run_query(request, GeneNameQuery) 
-
 
 @api_view(['POST'])
 def search_by_window_around_snpid(request):
@@ -333,7 +253,6 @@ def details_for_one(request):
     es_result = DataReconstructor(single_hit).get_reconstructed_record()
 
     #print "data_returned  " + repr(es_result)
-    #serializer = ScoresRowSerializer(data_returned['_source'], many = False)
     serializer = ScoresRowSerializer(es_result, many = False)
     data_to_return = serializer.data
     return Response(data_to_return, status=status.HTTP_200_OK)
