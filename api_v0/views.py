@@ -16,9 +16,12 @@ import re
 import json
 import random
 
+from AtsnpExceptions import *
 from DataReconstructor import DataReconstructor
 from GenomicLocationQuery import GenomicLocationQuery
 from TransFactorQuery import TransFactorQuery
+from SnpidWindowQuery import SnpidWindowQuery
+
 #TRY to remove this.
 # TODO: return an error if a p-value input is invalid.
 
@@ -209,6 +212,8 @@ def find_working_es_url():
 #we'll have to ensure that any such user has sufficient information to do so.
 
 
+#Should be a class...
+
 #TODO: Make this not place unneeded requests on ES. Only hit > 1 URL
 #if a connection is rejected / times out
 #TODO: successfuly complete deprecating this method
@@ -364,13 +369,27 @@ def use_appropriate_pvalue_filter_function(pval_dict):
     pvalue_filter = prepare_json_for_pvalue_filter_directional(pval_dict)
     return pvalue_filter
 
+def setup_and_run_query(request, query_class ):
+    try:
+        es_query = query_class(request).get_query()
+    except InvalidQueryError as e:
+        print "Responding with an Invalid query error: " + e.message
+        return Response(e.message, status=status.HTTP_400_BAD_REQUEST)
+    except NoDataFoundError as e:
+        print "Responding a No Data Found error: " + e.message
+        return Response(e.message, status=status.HTTP_204_NO_CONTENT)
+    es_params = setup_paging_parameters(request) 
+    return query_elasticsearch(es_query, es_params)
+
+
 #  Web interface translates motifs to transcription factors and vice-versa
 #  this API expects motif values. 
 @api_view(['POST'])
 def search_by_trans_factor(request):
-    es_query = TransFactorQuery(request).get_query()
-    es_params = setup_paging_parameters(request) 
-    return query_elasticsearch(es_query, es_params)
+   return setup_and_run_query(request, TransFactorQuery)
+   # es_query = TransFactorQuery(request).get_query()
+   # es_params = setup_paging_parameters(request) 
+   # return query_elasticsearch(es_query, es_params)
 
 #TODO: complete adapting this function; it should WORK.
 def get_position_of_gene_by_name(gene_name):
@@ -448,58 +467,59 @@ def search_by_gene_name(request):
 
 @api_view(['POST'])
 def search_by_window_around_snpid(request):
-    one_snpid = request.data.get('snpid')
-    numeric_snpid = one_snpid.replace('rs', '') #to compensate for our optimizations
-    window_size = request.data.get('window_size')
-    pvalue_dict = get_pvalue_dict(request)
-    
-    if window_size is None:
-        window_size = 0
+    #one_snpid = request.data.get('snpid')
+    #numeric_snpid = one_snpid.replace('rs', '') #to compensate for our optimizations
+    #window_size = request.data.get('window_size')
+    #pvalue_dict = get_pvalue_dict(request)
+    #
+    #if window_size is None:
+    #    window_size = 0
  
-    if numeric_snpid is None: 
-        return Response('No snpid specified.', 
-                         status = status.HTTP_400_BAD_REQUEST)
+    #if numeric_snpid is None: 
+    #    return Response('No snpid specified.', 
+    #                     status = status.HTTP_400_BAD_REQUEST)
 
-    #This URL is for looking up the genomic location of a SNPid. 
-    #has to be re-prepared for pageable search.
-    es_url = prepare_es_url('atsnp_output') 
+    ##This URL is for looking up the genomic location of a SNPid. 
+    ##has to be re-prepared for pageable search.
+    #es_url = prepare_es_url('atsnp_output') 
 
 
 
-    #if elasticsearch is down, find out now. 
-    if es_url is None:
-        return Response('Elasticsearch is down, please contact admins.', 
-                         status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    ##if elasticsearch is down, find out now. 
+    #if es_url is None:
+    #    return Response('Elasticsearch is down, please contact admins.', 
+    #                     status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    #query_for_snpid_location = {"query":{"match":{"snpid":one_snpid }}}
-    query_for_snpid_location = {"query":{"match":{"snpid":numeric_snpid }}}
-    es_query = json.dumps(query_for_snpid_location)
-    es_result = requests.post(es_url, data=es_query, timeout=100)
-    records_for_snpid = get_data_out_of_es_result(es_result)
+    ##query_for_snpid_location = {"query":{"match":{"snpid":one_snpid }}}
+    #query_for_snpid_location = {"query":{"match":{"snpid":numeric_snpid }}}
+    #es_query = json.dumps(query_for_snpid_location)
+    #es_result = requests.post(es_url, data=es_query, timeout=100)
+    #records_for_snpid = get_data_out_of_es_result(es_result)
 
-    if len(records_for_snpid['data']) == 0: 
-        return Response('No data for snpid ' + one_snpid + '.', 
-                        status = status.HTTP_204_NO_CONTENT)
+    #if len(records_for_snpid['data']) == 0: 
+    #    return Response('No data for snpid ' + one_snpid + '.', 
+    #                    status = status.HTTP_204_NO_CONTENT)
 
-    record_to_pick = records_for_snpid['data'][0]
-    record_to_pick['chr'] = record_to_pick['chr'].replace('ch', '') #Account for minimized data
-    gl_coords = { 'chromosome' :  record_to_pick['chr'],
-                  'start_pos'  :  record_to_pick['pos'] - window_size,
-                  'end_pos'    :  record_to_pick['pos'] + window_size
-                 }
-    if gl_coords['start_pos'] < 0:
-        #: TODO consider adding a warning here if this happens?
-        gl_coords['start_pos'] = 0
+    #record_to_pick = records_for_snpid['data'][0]
+    #record_to_pick['chr'] = record_to_pick['chr'].replace('ch', '') #Account for minimized data
+    #gl_coords = { 'chromosome' :  record_to_pick['chr'],
+    #              'start_pos'  :  record_to_pick['pos'] - window_size,
+    #              'end_pos'    :  record_to_pick['pos'] + window_size
+    #             }
+    #if gl_coords['start_pos'] < 0:
+    #    #: TODO consider adding a warning here if this happens?
+    #    gl_coords['start_pos'] = 0
 
-    #TRY ADDING THE DIRECTIONAL HERE?
-    
-    es_query = prepare_json_for_gl_query_multi_pval(gl_coords, pvalue_dict)
-    #print "es query for snpid window search " + es_query
-   
-    es_params = { 'page_size' : request.data.get('page_size'),
-                  'from_result' : request.data.get('from_result') }
-    #This probably isn't the right place to put the from result
-    return query_elasticsearch(es_query, es_params)
+    ##TRY ADDING THE DIRECTIONAL HERE?
+    #
+    #es_query = prepare_json_for_gl_query_multi_pval(gl_coords, pvalue_dict)
+    ##print "es query for snpid window search " + es_query
+    return setup_and_run_query(request, SnpidWindowQuery) 
+    #es_params = { 'page_size' : request.data.get('page_size'),
+    #              'from_result' : request.data.get('from_result') }
+    ##This probably isn't the right place to put the from result
+    #es_query = SnpidWindowQuery(request).get_query()
+    #return query_elasticsearch(es_query, es_params)
 
 
 def get_one_item_from_elasticsearch_by_id(id_of_item):

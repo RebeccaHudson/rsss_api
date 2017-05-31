@@ -31,12 +31,7 @@ class GenomicLocationQuery(ElasticsearchAtsnpQuery):
                            status=status.HTTP_400_BAD_REQUEST)
         return gl_coords
 
-    #returns the 'must' key of the query dict to build.
-    def prepare_json_for_query(self):
-        gl_coords_or_error_response = self.check_and_aggregate_gl_search_params()
-        if not gl_coords_or_error_response.__class__.__name__  == 'dict':
-            return gl_coords_or_error_response 
-        gl_coords = gl_coords_or_error_response
+    def setup_gl_query(self, gl_coords):
         j_dict = {"must" : [
                     { "range": {
                            "pos" : {  "from" : gl_coords['start_pos'], 
@@ -46,5 +41,13 @@ class GenomicLocationQuery(ElasticsearchAtsnpQuery):
                     { "term" : { "chr" : gl_coords['chromosome'] } }
                  ] 
               }
-        #json_out = json.dumps(j_dict)
+        return j_dict
+
+    #returns the 'must' key of the query dict to build.
+    def prepare_json_for_query(self):
+        gl_coords_or_error_response = self.check_and_aggregate_gl_search_params()
+        if not gl_coords_or_error_response.__class__.__name__  == 'dict':
+            return gl_coords_or_error_response 
+        gl_coords = gl_coords_or_error_response
+        j_dict = self.setup_gl_query(gl_coords)
         return j_dict

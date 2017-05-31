@@ -1,12 +1,15 @@
 import json
-#A class from which all of our queries inherits.
+from rest_framework.response import Response
+from rest_framework import status
+from AtsnpExceptions import * 
+#A class from which all of our queries inherit.
 
 class ElasticsearchAtsnpQuery(object):
 
     def __init__(self, request):   
         self.request = request
         self.query = self.setup_query()
-    
+
     def get_query(self):
         return self.query
 
