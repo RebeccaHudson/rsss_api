@@ -254,21 +254,10 @@ def setup_es_url(data_type, url_base, operation="_search",
          url = url + "&from=" + str(from_result) 
      return url
 
-
 #a refactor of scrores_row_list
 @api_view(['POST'])
 def search_by_snpid(request):
     return setup_and_run_query(request, SnpidQuery)
-    #pvalue_dict = get_pvalue_dict(request)
-    #snpid_list = request.data['snpid_list']
-    #sort_order = request.data.get('sort_order')
-    #es_query = prepare_snpid_search_query_from_snpid_chunk(snpid_list,
-    #                                                    pvalue_dict, 
-    #                                                    sort_info=sort_order)  
-    #es_params = { 'from_result' : request.data.get('from_result'),
-    #              'page_size'   : request.data.get('page_size')}
-    #return query_elasticsearch(es_query, es_params)
-  
 
 #try to use 'filter' queries to speed this up.
 def prepare_json_for_gl_query_multi_pval(gl_coords, pval_dict, sort_info=None):
@@ -388,9 +377,6 @@ def setup_and_run_query(request, query_class ):
 @api_view(['POST'])
 def search_by_trans_factor(request):
    return setup_and_run_query(request, TransFactorQuery)
-   # es_query = TransFactorQuery(request).get_query()
-   # es_params = setup_paging_parameters(request) 
-   # return query_elasticsearch(es_query, es_params)
 
 #TODO: complete adapting this function; it should WORK.
 def get_position_of_gene_by_name(gene_name):
@@ -435,36 +421,6 @@ def get_position_of_gene_by_name(gene_name):
 @api_view(['POST'])
 def search_by_gene_name(request):
     return setup_and_run_query(request, GeneNameQuery) 
-    #gene_name = request.data.get('gene_name')
-    #window_size = request.data.get('window_size')
-    #pvalue_dict = get_pvalue_dict(request)
-    #sort_order = request.data.get('sort_order')
-
-    #print "sort order: " + repr(sort_order)
-    ##load as json? or is it already?
-
-    #if window_size is None:
-    #    window_size = 0
-
-    #if gene_name is None:
-    #    return Response('No gene name specified.', 
-    #                    status = status.HTTP_400_BAD_REQUEST)
-
-    #es_params = {   'page_size' :   request.data.get('page_size'),
-    #                'from_result' : request.data.get('from_result') }
-
-    ##TODO: refactor the way that this checks for gene names in ES.
-    #gl_coords = get_position_of_gene_by_name(gene_name)
-    #if gl_coords is None: 
-    #    return Response('Gene name not found in database.', 
-    #                    status = status.HTTP_400_BAD_REQUEST)
-    ##print "continued gene name search after Respnose.."
-    #gl_coords['start_pos'] = int(gl_coords['start_pos']) - window_size
-    #gl_coords['end_pos'] = int(gl_coords['end_pos']) + window_size
-
-    ##print "gl coordinates " + repr(gl_coords)
-    #es_query = prepare_json_for_gl_query_multi_pval(gl_coords, pvalue_dict, sort_info=sort_order)
-    #return query_elasticsearch(es_query, es_params)
 
 
 @api_view(['POST'])
