@@ -17,5 +17,6 @@ class ScoresRowSerializer(serializers.ModelSerializer):
               'pval_cond_ref', 'pval_cond_snp', 
               'pval_diff', 'pval_rank', 'refAllele', 'snpAllele',
                'snp_aug_match_seq', 'snp_extra_pwm_off',
-               'ref_aug_match_seq', 'ref_extra_pwm_off',)
+               'ref_aug_match_seq', 'ref_extra_pwm_off',
+               'motif_bits',)
 
