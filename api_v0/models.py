@@ -13,6 +13,7 @@ class ScoresRow(models.Model):
   log_lik_ref = models.FloatField()  
   log_lik_snp = models.FloatField() 
   log_lik_ratio =models.FloatField() 
+  log_lik_rank =models.FloatField() 
   log_enhance_odds =models.FloatField() 
   log_reduce_odds =models.FloatField()
   ref_start=models.IntegerField()

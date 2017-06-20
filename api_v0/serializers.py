@@ -10,7 +10,8 @@ class ScoresRowSerializer(serializers.ModelSerializer):
     model = ScoresRow
     fields = ('chr', 'pos', 
               'snpid', 'motif',  
-              'log_lik_ref', 'log_lik_snp', 'log_lik_ratio', 
+              'log_lik_ref', 'log_lik_snp', 
+              'log_lik_ratio', 'log_lik_rank',
               'log_enhance_odds', 'log_reduce_odds',
               'ref_strand', 'snp_strand',
               'pval_ref', 'pval_snp',
