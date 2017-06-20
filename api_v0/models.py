@@ -33,6 +33,7 @@ class ScoresRow(models.Model):
   snp_extra_pwm_off = models.IntegerField() 
   ref_aug_match_seq =  models.CharField(max_length=100)
   ref_extra_pwm_off =  models.IntegerField() 
+  motif_bits = models.TextField()
 
   class Meta:
     managed = False
