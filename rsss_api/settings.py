@@ -71,20 +71,17 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'rsss_api.wsgi.application'
-#
 
-# Database
-# https://docs.djangoproject.com/en/1.9/ref/settings/#databases
-#DATABASES = {
-#    'default': {
-#        'ENGINE': 'django.db.backends.sqlite3',
-#        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
-#    }
-#}
+ELASTICSEARCH_URL='http://atsnp-db1.biostat.wisc.edu:9200' #remove this?
 
-ELASTICSEARCH_URL='http://atsnp-db1.biostat.wisc.edu:9200'
 ELASTICSEARCH_URLS = [ 'http://atsnp-db'+ str(x) +'.biostat.wisc.edu:9200' for x in range(1,4) ]
 ELASTICSEARCH_PAGE_SIZE = 50  # this should be pretty large, ultimately.
+
+#
+ES_INDEX_NAMES = { 'ATSNP_DATA' : 'atsnp_reduced_test', 
+                   'GENE_NAMES' : 'gencode_gene_names',
+                    'SNP_INFO'  : 'snp_info' }
+
 
 AUTH_PASSWORD_VALIDATORS = [
     {

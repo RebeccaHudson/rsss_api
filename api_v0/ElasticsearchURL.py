@@ -16,14 +16,18 @@ import json
 #  Either end up returning the result set; or a 500 status Response with a descriptive
 #  message about Elasticsearch being down.
 class ElasticsearchURL(object):
-    def __init__(self, data_type, operation="_search", from_result=None, page_size=None):
+    def __init__(self, data_type, operation="_search", 
+                 from_result=None, page_size=None):
+
          url_base  = self.find_working_es_url()
          name_of_index = None
 
          if data_type == 'atsnp_output':
-             name_of_index = 'atsnp_reduced_test'          
+             name_of_index = settings.ES_INDEX_NAMES['ATSNP_DATA']
          elif data_type == 'gencode_gene_symbols':
-             name_of_index = 'gencode_genes'
+             name_of_index = settings.ES_INDEX_NAMES['GENE_NAMES']
+         #elif data_type == 'sequence':
+         #    name_of_index = settings.ES_INDEX_NAMES['SNP_INFO']
 
          url = "/".join([url_base, name_of_index, data_type, operation])
 
@@ -38,13 +42,13 @@ class ElasticsearchURL(object):
          self.url = url
 
     def find_working_es_url(self):
-       name_of_es_index = 'atsnp_reduced_test'
        machines_to_try = settings.ELASTICSEARCH_URLS[:]
        random.shuffle(machines_to_try)
        while len(machines_to_try) > 0:
            #TODO: change back to main data store. (atsnp_data_tiny -> atsnp_data)
            machine_to_try = machines_to_try.pop()
-           url_to_try = '/'.join([machine_to_try,name_of_es_index,
+           url_to_try = '/'.join([machine_to_try,
+                                  settings.ES_INDEX_NAMES['ATSNP_DATA'],
                                   'atsnp_output','_search?size=1'])
            #print "trying this url " + url_to_try
            es_check_response = None
@@ -55,7 +59,8 @@ class ElasticsearchURL(object):
            except requests.exceptions.ConnectionError:
                print "request for " + url_to_try + " has been refused"
            else:        
-               #print "url " + url_to_try + " es_check_response" + str(json.loads(es_check_response.text))
+               #print "url " + url_to_try + " es_check_response" 
+               #+ str(json.loads(es_check_response.text))
                #es_check_data = json.loads(es_check_response.text)
                return machine_to_try
            return None

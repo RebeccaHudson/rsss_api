@@ -1,5 +1,6 @@
 import json
 import requests
+from django.conf import settings
 #The purpose of this class is to work all of the space-saving data
 #transformations backwards.
 #Needs to lookup snp_info from Elasticsearch. (Might be a little slower, but this makes it more feasible.)
@@ -39,7 +40,9 @@ class DataReconstructor(object):
 
     def grab_snp_info_from_es(self, snpid):
         url = '/'.join(['http:/', 'atsnp-db1:9200',
-                        'snp_info','sequence',snpid])
+                        settings.ES_INDEX_NAMES['SNP_INFO'],
+                        'sequence',snpid])
+        #select a basae url randomly.
         d = requests.get(url)
         r = json.loads(d.text)
         try :

@@ -156,7 +156,6 @@ def get_one_item_from_elasticsearch_by_id(index_name, doc_type, id_of_item):
         try: 
             #queries for single datum details use elasticsearch's GET API.
             url_base = esNode
-            #search_url = url_base + "/atsnp_reduced_test/atsnp_output/" + id_of_item
             search_url = '/'.join([url_base, index_name, doc_type, id_of_item])
             #print "querying single item for detail view with url : " + search_url
             es_result = requests.get(search_url, timeout=100)
@@ -199,7 +198,8 @@ def details_for_one(request):
     
     data_returned =\
      get_one_item_from_elasticsearch_by_id(
-        'atsnp_reduced_test', 'atsnp_output', id_to_get_data_for)
+          settings.ES_INDEX_NAMES['ATSNP_DATA'], 
+          'atsnp_output', id_to_get_data_for)
 
     data_returned = data_returned.json()
     #print "these methods avaliable : " + repr(dir(data_returned))
