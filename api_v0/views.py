@@ -58,18 +58,70 @@ def get_data_out_of_es_result(es_result, pull_motifs):
         print "es result : " + str(es_data)
     return { 'data' : None, 'hitcount': 0 } 
 
-def return_any_hits(data_returned, pull_motifs):
+#Best to not jam this into the list comprehension below.
+def is_this_the_motif_ic_filter(one_filter):
+    if 'terms' in one_filter and 'motif_ic' in one_filter['terms']:
+       return True 
+    return False
+
+def detect_and_remove_motif_ic_filter(query):
+    #If motif_ic is there, remove it and return True
+    #otherwise, return false
+    if query.find('motif_ic') == -1:
+        print "motif_ic not included in query"
+        return None
+    query = json.loads(query)
+
+    print "\n\n Where is motif information content? " +  \
+       repr(query['query']['bool']['filter'])
+    filter_list = query['query']['bool']['filter']  
+    new_filter = \
+      [ one_filter for one_filter in filter_list if not \
+         is_this_the_motif_ic_filter(one_filter) ] 
+    print "new filter? " + repr(new_filter)
+
+    query['query']['bool']['filter'] = new_filter
+    return json.dumps(query) 
+    
+
+def return_any_hits(data_returned, pull_motifs, query=None):
     if data_returned['hitcount'] == 0:
+        #if motif-ic is included; try a 1-element search without it.
+        #Delete the key.
+        query_minus_motif_ic_filter = detect_and_remove_motif_ic_filter(query)
+        print "query without motif ic filter : " + str(query_minus_motif_ic_filter)
+        #Will be none if motif_ic filter was not included.
+        if query is not None and query_minus_motif_ic_filter is not None:
+           print "There is motif ic to remove."
+           #if query contains the motif_ic filter key, then it will be deleted here.  
+           peek_params = {'page_size':1, 'from_result': 0 }
+           hits_without_ic_filtering = \
+            query_elasticsearch(query_minus_motif_ic_filter, peek_params, False)
+           print "available methods: " + repr(dir(hits_without_ic_filtering))
+           hwa = hits_without_ic_filtering.status_code ; print repr(hwa)
+           if hwa is not 204:
+           #hwb = hwa.__dict__; print repr(hwb)
+           #hwc = hwb['data'] ; print repr(hwc)
+           #hwd = hwc['hitcount']; print repr(hwd)
+           #hwi = hits_without_ic_filtering.__dict__['data']['hitcount']
+           #if int(hwi) > 0:
+               special_msg= 'INFO: No results match your query. However, if '+\
+                        ' all of the levels of motif information content '   +\
+                        ' included, your search would return at least 1 result.'
+                
+               print "\n\n\n\n\n *******************   returning the special message    ->>> "
+               return Response(special_msg, status=status.HTTP_204_NO_CONTENT)
+           #print "\n\n\n\n\n *******************       ->>> "
+           #print(repr(hwi))
         return Response('No matches.', status=status.HTTP_204_NO_CONTENT)
+
     if len(data_returned['data']) == 0:
         return Response('Done paging all ' + \
                       str(data_returned['hitcount']) + 'results.',
                       status=status.HTTP_204_NO_CONTENT)
-
     
     serializer = ScoresRowSerializer(data_returned['data'], many = True)
     data_returned['data'] = serializer.data
-    #print "called return any hits..."
     return Response(data_returned, status=status.HTTP_200_OK)
 
 #paging parameters are used on the ES URL.
@@ -82,6 +134,9 @@ def setup_paging_parameters(request):
 #TODO: factor this out into a 'helper' file, it's not strictly a view.
 #es_params is a dict with from_result and page_size
 #TODO: add a standard parametrized elasticsearch timeout from settings.
+
+
+#If there would be results, but there is not because of IC filtering, report this.
 def query_elasticsearch(completed_query, es_params, pull_motifs):
     search_url = ElasticsearchURL('atsnp_output', 
                                   from_result = es_params['from_result'], 
@@ -96,7 +151,7 @@ def query_elasticsearch(completed_query, es_params, pull_motifs):
         print "machine at " + esNode + " refused connection." 
     else: 
         data_back = get_data_out_of_es_result(es_result, pull_motifs) 
-        return return_any_hits(data_back, pull_motifs)
+        return return_any_hits(data_back, pull_motifs, completed_query)
    #Algorithm to save a few requests here and there is used for the deatil view.
 
 def setup_and_run_query(request, query_class ):
