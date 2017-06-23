@@ -11,6 +11,7 @@ class ElasticsearchAtsnpQuery(object):
         self.query = self.setup_query()
 
     def get_query(self):
+        print "************************  " + repr(self.query)
         return self.query
 
     #possible to put the Pvalue stuff into its own class?
@@ -109,16 +110,40 @@ class ElasticsearchAtsnpQuery(object):
             }
         return q
 
+    #which values should be an array of numbers between 1 and 4.
+    def append_motif_ic_filter(self, dict_for_filter, which_values):
+        ic_int_values = [ int(x) for x in which_values ]
+        dict_for_filter['filter'].append({
+        "terms" : {
+            "motif_ic": ic_int_values
+                  }
+               })
+   
+    #Filter by information content if
+    # 1. The field is not missing AND
+    # 2. Not all information content levels are included.
+    def does_ic_filter_apply(self):
+        if self.request.data.get('ic_filter') is None \
+          or len(self.request.data.get('ic_filter')) == 4:
+            print "No need to apply a filter by motif information content."
+            return False
+        return True
+        
     #handle blanks for all fields.
     def setup_query(self):
         j_dict = self.setup_sort()
-
         query_data = self.prepare_json_for_query() 
         #TODO: use a try-catch thing for this.
         #contents of the ES query's 'must' key.
         #will return an error if bad cordinates.            
         pvalue_filter =  self.setup_pvalue_filter()
-
+        if self.does_ic_filter_apply():
+            #If this search turns up empty, check if it wouldn't be without the 
+            #information content filtering.
+            motif_ic_values = self.request.data.get('ic_filter')
+            print "here's our motif_ic_values " + repr(motif_ic_values)
+            self.append_motif_ic_filter(pvalue_filter, motif_ic_values)
+            
         base_query = self.elasticsearch_base_query(query_data, pvalue_filter)
         j_dict.update(base_query) 
         json_out = json.dumps(j_dict)
