@@ -5,6 +5,7 @@ import requests
 import re
 import json
 
+from AtsnpExceptions import *
 from GenomicLocationQuery import GenomicLocationQuery
 from ElasticsearchURL import ElasticsearchURL, ElasticsearchResult
 
