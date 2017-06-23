@@ -65,21 +65,16 @@ def is_this_the_motif_ic_filter(one_filter):
     return False
 
 def detect_and_remove_motif_ic_filter(query):
-    #If motif_ic is there, remove it and return True
-    #otherwise, return false
+    #If motif_ic is there, remove it and return it as a string. 
+    #otherwise, return  None
     if query.find('motif_ic') == -1:
         print "motif_ic not included in query"
         return None
     query = json.loads(query)
-
-    print "\n\n Where is motif information content? " +  \
-       repr(query['query']['bool']['filter'])
     filter_list = query['query']['bool']['filter']  
     new_filter = \
       [ one_filter for one_filter in filter_list if not \
          is_this_the_motif_ic_filter(one_filter) ] 
-    print "new filter? " + repr(new_filter)
-
     query['query']['bool']['filter'] = new_filter
     return json.dumps(query) 
     
@@ -97,22 +92,11 @@ def return_any_hits(data_returned, pull_motifs, query=None):
            peek_params = {'page_size':1, 'from_result': 0 }
            hits_without_ic_filtering = \
             query_elasticsearch(query_minus_motif_ic_filter, peek_params, False)
-           print "available methods: " + repr(dir(hits_without_ic_filtering))
-           hwa = hits_without_ic_filtering.status_code ; print repr(hwa)
-           if hwa is not 204:
-           #hwb = hwa.__dict__; print repr(hwb)
-           #hwc = hwb['data'] ; print repr(hwc)
-           #hwd = hwc['hitcount']; print repr(hwd)
-           #hwi = hits_without_ic_filtering.__dict__['data']['hitcount']
-           #if int(hwi) > 0:
+           if hits_without_ic_filtering.status_code is not 204:
                special_msg= 'INFO: No results match your query. However, if '+\
                         ' all of the levels of motif information content '   +\
                         ' included, your search would return at least 1 result.'
-                
-               print "\n\n\n\n\n *******************   returning the special message    ->>> "
-               return Response(special_msg, status=status.HTTP_204_NO_CONTENT)
-           #print "\n\n\n\n\n *******************       ->>> "
-           #print(repr(hwi))
+               return Response(special_msg, status=207) 
         return Response('No matches.', status=status.HTTP_204_NO_CONTENT)
 
     if len(data_returned['data']) == 0:
