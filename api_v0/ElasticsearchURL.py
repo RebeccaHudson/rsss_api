@@ -38,19 +38,16 @@ class ElasticsearchURL(object):
 
          if from_result is not None:
              url = url + "&from=" + str(from_result) 
-
          self.url = url
 
     def find_working_es_url(self):
        machines_to_try = settings.ELASTICSEARCH_URLS[:]
        random.shuffle(machines_to_try)
        while len(machines_to_try) > 0:
-           #TODO: change back to main data store. (atsnp_data_tiny -> atsnp_data)
            machine_to_try = machines_to_try.pop()
            url_to_try = '/'.join([machine_to_try,
                                   settings.ES_INDEX_NAMES['ATSNP_DATA'],
                                   'atsnp_output','_search?size=1'])
-           #print "trying this url " + url_to_try
            es_check_response = None
            try:
                es_check_response = requests.get(url_to_try, timeout=50)  
@@ -59,9 +56,6 @@ class ElasticsearchURL(object):
            except requests.exceptions.ConnectionError:
                print "request for " + url_to_try + " has been refused"
            else:        
-               #print "url " + url_to_try + " es_check_response" 
-               #+ str(json.loads(es_check_response.text))
-               #es_check_data = json.loads(es_check_response.text)
                return machine_to_try
            return None
 
@@ -72,7 +66,7 @@ class ElasticsearchResult(object):
     #returns a Response OR the data.
     def __init__(self, es_result):        
         es_data = es_result.json()
-        print "es_data " + repr(es_data)
+        #print "es_data " + repr(es_data)
         if 'hits' in es_data.keys():
             data =  [ x['_source'] for x in es_data['hits']['hits'] ]
             data_w_id = []
@@ -91,7 +85,6 @@ class ElasticsearchResult(object):
         return self.result
 
     def get_data_out_of_es_result(self, result):
-        print "result  " + repr(result)
         if data_returned['hitcount'] == 0:
             return Response('No matches.', status=status.HTTP_204_NO_CONTENT)
         if len(data_returned['data']) == 0:
@@ -102,20 +95,4 @@ class ElasticsearchResult(object):
         serializer = ScoresRowSerializer(data_returned['data'], many = True)
         data_returned['data'] = serializer.data
 
-        #print "called return any hits..."
         return Response(data_returned, status=status.HTTP_200_OK)
-
-    #This may not be appropriate inside of this class.
-    #def return_any_hits(self, data_returned):
-    #    if data_returned['hitcount'] == 0:
-    #        self.result = Response('No matches.', status=status.HTTP_204_NO_CONTENT)
-    #    if len(data_returned['data']) == 0:
-    #        self.result = Response('Done paging all ' + \
-    #                      str(data_returned['hitcount']) + 'results.',
-    #                      status=status.HTTP_204_NO_CONTENT)
-
-    #    serializer = ScoresRowSerializer(data_returned['data'], many = True)
-    #    data_returned['data'] = serializer.data
-    #    #print "called return any hits..."
-    #    self.result = Response(data_returned, status=status.HTTP_200_OK)
-    #    return self.result

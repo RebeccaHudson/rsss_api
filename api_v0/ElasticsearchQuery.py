@@ -11,7 +11,7 @@ class ElasticsearchAtsnpQuery(object):
         self.query = self.setup_query()
 
     def get_query(self):
-        print "************************  " + repr(self.query)
+        #print "************************  " + repr(self.query)
         return self.query
 
     #possible to put the Pvalue stuff into its own class?
@@ -79,7 +79,7 @@ class ElasticsearchAtsnpQuery(object):
         so = sort_orders['sort']
         for i, x  in enumerate(so):
             if x.keys()[0] == 'coordinate':
-                print "translating" #  x['coordinate']
+                #print "translating" #  x['coordinate']
                 #get a copy of the order dict
                 x[u'chr'] = x['coordinate']
                 pos = { u'pos' : x['coordinate'] }
@@ -125,7 +125,7 @@ class ElasticsearchAtsnpQuery(object):
     def does_ic_filter_apply(self):
         if self.request.data.get('ic_filter') is None \
           or len(self.request.data.get('ic_filter')) == 4:
-            print "No need to apply a filter by motif information content."
+            #print "No need to apply a filter by motif information content."
             return False
         return True
         
@@ -141,7 +141,6 @@ class ElasticsearchAtsnpQuery(object):
             #If this search turns up empty, check if it wouldn't be without the 
             #information content filtering.
             motif_ic_values = self.request.data.get('ic_filter')
-            print "here's our motif_ic_values " + repr(motif_ic_values)
             self.append_motif_ic_filter(pvalue_filter, motif_ic_values)
             
         base_query = self.elasticsearch_base_query(query_data, pvalue_filter)

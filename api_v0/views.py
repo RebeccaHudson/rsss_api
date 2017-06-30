@@ -32,8 +32,6 @@ from ElasticsearchURL import ElasticsearchURL
 #pull the _id field here; put it in with the rest of the data.
 def get_data_out_of_es_result(es_result, pull_motifs):
     es_data = es_result.json()
-    #print("es result : " + str(es_data))
-    #print "es ruesult keys: "  + str(es_data.keys())
     if 'hits' in es_data.keys():
         motifs_pulled = {}
         data =  [ x['_source'] for x in es_data['hits']['hits'] ]
@@ -68,7 +66,6 @@ def detect_and_remove_motif_ic_filter(query):
     #If motif_ic is there, remove it and return it as a string. 
     #otherwise, return  None
     if query.find('motif_ic') == -1:
-        print "motif_ic not included in query"
         return None
     query = json.loads(query)
     filter_list = query['query']['bool']['filter']  
@@ -84,10 +81,8 @@ def return_any_hits(data_returned, pull_motifs, query=None):
         #if motif-ic is included; try a 1-element search without it.
         #Delete the key.
         query_minus_motif_ic_filter = detect_and_remove_motif_ic_filter(query)
-        print "query without motif ic filter : " + str(query_minus_motif_ic_filter)
         #Will be none if motif_ic filter was not included.
         if query is not None and query_minus_motif_ic_filter is not None:
-           print "There is motif ic to remove."
            #if query contains the motif_ic filter key, then it will be deleted here.  
            peek_params = {'page_size':1, 'from_result': 0 }
            hits_without_ic_filtering = \
@@ -95,7 +90,7 @@ def return_any_hits(data_returned, pull_motifs, query=None):
            if hits_without_ic_filtering.status_code is not 204:
                special_msg= 'INFO: No results match your query. However, if '+\
                         ' all of the levels of motif information content '   +\
-                        ' included, your search would return at least 1 result.'
+                     'were included, your search would return at least 1 result.'
                return Response(special_msg, status=207) 
         return Response('No matches.', status=status.HTTP_204_NO_CONTENT)
 
@@ -142,17 +137,17 @@ def setup_and_run_query(request, query_class ):
     try:
         es_query = query_class(request).get_query()
     except InvalidQueryError as e:
-        print "Responding with an Invalid query error: " + e.message
+        #print "Responding with an Invalid query error: " + e.message
         return Response(e.message, status=status.HTTP_400_BAD_REQUEST)
     except NoDataFoundError as e:
-        print "Responding a No Data Found error: " + e.message
+        #print "Responding a No Data Found error: " + e.message
         return Response(e.message, status=status.HTTP_204_NO_CONTENT)
     es_params = setup_paging_parameters(request)  
+    #print "  request to API " + repr(request.data) 
     pull_motifs = check_for_download(request) #if True, get motif plotting data.
     return query_elasticsearch(es_query, es_params, pull_motifs)
 
 def check_for_download(request):
-    #print "dir(request)" + repr(dir(request))
     if 'for_download' in request.data and request.data['for_download']:
         return False 
     return True 
@@ -241,7 +236,6 @@ def details_for_one(request):
           'atsnp_output', id_to_get_data_for)
 
     data_returned = data_returned.json()
-    #print "these methods avaliable : " + repr(dir(data_returned))
     single_hit = data_returned['_source']    
     single_hit['id'] = data_returned['_id'] 
     es_result = DataReconstructor(single_hit).get_reconstructed_record()
@@ -249,7 +243,6 @@ def details_for_one(request):
     es_result['motif_bits'] = \
           grab_plotting_data_for_one_motif(id_to_get_data_for)
 
-    #print "data_returned  " + repr(es_result)
     serializer = ScoresRowSerializer(es_result, many = False)
     data_to_return = serializer.data
     return Response(data_to_return, status=status.HTTP_200_OK)

@@ -52,9 +52,10 @@ class GenomicLocationQuery(ElasticsearchAtsnpQuery):
     #Shared by SNPid window and gene name searches. 
     def apply_window_around_coordinates(self, coords):
         window = self.request.data.get('window_size')
-        if window > 1000000:
-            msg = "Window is too big. Put this number into a config file."
-            raise InvalidQueryError(msg)
+        #Window size is checked as the location query is processed.
+        #if window > ((settings.HARD_LIMITS['MAX_BASES_IN_GL_REQUEST'] / 2) + 10000):
+        #    msg = "Window too large. Put this number into a config file."
+        #    raise InvalidQueryError(msg)
         coords['start_pos'] = max(coords['start_pos'] - window, 0)
         coords['end_pos'] += window
         return coords
