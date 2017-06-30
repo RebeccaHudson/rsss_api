@@ -78,8 +78,8 @@ ELASTICSEARCH_URLS = [ 'http://atsnp-db'+ str(x) +'.biostat.wisc.edu:9200' for x
 ELASTICSEARCH_PAGE_SIZE = 50  # this should be pretty large, ultimately.
 
 #
-ES_INDEX_NAMES = { 'ATSNP_DATA' : 'atsnp_reduced_test', 
-                   'GENE_NAMES' : 'gencode_gene_names',
+ES_INDEX_NAMES = { 'ATSNP_DATA' : 'atsnp_data', #atsnp_reduced_test
+                   'GENE_NAMES' : 'gencode_genes',
                     'SNP_INFO'  : 'snp_info' }
 
 
@@ -127,7 +127,8 @@ DEFAULT_P_VALUE = 0.05
 
 
 HARD_LIMITS = {
-  'MAX_NUMBER_OF_SNPIDS_ALLOWED_TO_REQUEST': 1000000000,
-  'MAX_BASES_IN_GL_REQUEST': 100000000000
+  'MAX_NUMBER_OF_SNPIDS_ALLOWED_TO_REQUEST': 1000,
+  'MAX_BASES_IN_GL_REQUEST': 1000000000,
+  'ELASTIC_MAX_RESULT_WINDOW' : 10000
 }
 
