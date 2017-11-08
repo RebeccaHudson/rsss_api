@@ -39,7 +39,7 @@ class DataReconstructor(object):
         return red 
 
     def grab_snp_info_from_es(self, snpid):
-        url = '/'.join(['http:/', 'atsnp-db1:9200',
+        url = '/'.join(['http:/', 'atsnp-db2:9200',
                         settings.ES_INDEX_NAMES['SNP_INFO'],
                         'sequence',snpid])
         #select a basae url randomly.
