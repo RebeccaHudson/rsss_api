@@ -72,9 +72,10 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'rsss_api.wsgi.application'
 
-ELASTICSEARCH_URL='http://atsnp-db1.biostat.wisc.edu:9200' #remove this?
+#Should be able to remove this.
+#ELASTICSEARCH_URL='http://atsnp-db1.biostat.wisc.edu:9200' #remove this?
 
-ELASTICSEARCH_URLS = [ 'http://atsnp-db'+ str(x) +'.biostat.wisc.edu:9200' for x in range(1,4) ]
+ELASTICSEARCH_URLS = [ 'http://atsnp-db'+ str(x) +'.biostat.wisc.edu:9200' for x in range(2,4) ]
 ELASTICSEARCH_PAGE_SIZE = 50  # this should be pretty large, ultimately.
 
 #
