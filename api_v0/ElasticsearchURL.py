@@ -28,7 +28,10 @@ class ElasticsearchURL(object):
              name_of_index = settings.ES_INDEX_NAMES['GENE_NAMES']
          #elif data_type == 'sequence':
          #    name_of_index = settings.ES_INDEX_NAMES['SNP_INFO']
-
+         print "url_base : " +  url_base
+         print "name_of_index: " +  name_of_index
+         print "data_type: " +  data_type
+         print "operation: " +  operation
          url = "/".join([url_base, name_of_index, data_type, operation])
 
          if page_size is None:
