@@ -11,7 +11,7 @@ class ElasticsearchAtsnpQuery(object):
         self.query = self.setup_query()
 
     def get_query(self):
-        #print "************************  " + repr(self.query)
+        print "************************  " + repr(self.query)
         return self.query
 
     #possible to put the Pvalue stuff into its own class?
