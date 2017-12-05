@@ -16,6 +16,8 @@ import re
 import json
 import random
 
+#from elasticsearch import Elasticsearch, helpers
+
 from AtsnpExceptions import *
 from DataReconstructor import DataReconstructor
 from GenomicLocationQuery import GenomicLocationQuery
@@ -27,11 +29,13 @@ from SnpidQuery import SnpidQuery
 from ElasticsearchURL import ElasticsearchURL
 
 
-
-
 #pull the _id field here; put it in with the rest of the data.
 def get_data_out_of_es_result(es_result, pull_motifs):
     es_data = es_result.json()
+    print "keys in es data : " + repr(es_data.keys()) 
+    if  'took' in es_data.keys():
+        print "es took " + str(es_data['took'])
+ 
     if 'hits' in es_data.keys():
         motifs_pulled = {}
         data =  [ x['_source'] for x in es_data['hits']['hits'] ]
@@ -50,10 +54,16 @@ def get_data_out_of_es_result(es_result, pull_motifs):
             else:
                 one_hit_data['motif_bits'] = json.dumps({}) 
         hitcount = es_data['hits']['total']
-        return { 'data':data_w_id, 'hitcount': hitcount}
+        data_to_return = {'data' : data_w_id, 'hitcount': hitcount}
+        if '_scroll_id' in es_data:   
+            #send back a scroll id to continue a scroll in progress
+            data_to_return['scroll_id'] = es_data['_scroll_id']
+        return data_to_return 
     else:
         print "no hits..."
         print "es result : " + str(es_data)
+
+    #The scroll_id will not be passed
     return { 'data' : None, 'hitcount': 0 } 
 
 #Best to not jam this into the list comprehension below.
@@ -101,6 +111,7 @@ def return_any_hits(data_returned, pull_motifs, query=None):
     
     serializer = ScoresRowSerializer(data_returned['data'], many = True)
     data_returned['data'] = serializer.data
+    #print "FOO -> data returned keys: " + repr(data_returned.keys())
     return Response(data_returned, status=status.HTTP_200_OK)
 
 #paging parameters are used on the ES URL.
@@ -110,9 +121,26 @@ def setup_paging_parameters(request):
         params[one_key] = request.data.get(one_key)
     return params
 
-#TODO: factor this out into a 'helper' file, it's not strictly a view.
-#es_params is a dict with from_result and page_size
-#TODO: add a standard parametrized elasticsearch timeout from settings.
+
+#Handle this without the Elasticsearch helpers
+#Make sure the scroll ID gets passed back to the viewer app.
+def setup_scrolling_download(search_url, complete_query):
+    print "complete query: " + str(complete_query)
+    #The url that gets used by being passed in starts up ther. 
+    url_to_use  = \
+      'http://atsnp-db1.biostat.wisc.edu:9200/atsnp_data/atsnp_output/_search?scroll=1m&size=500' 
+    query_to_use = {'query' : json.loads(complete_query)['query'] }
+    #del query_to_use['query']['sort']  #does this solve it?
+    query_str = json.dumps(query_to_use) 
+    print "complete query for setting up scrolling download: " + query_str
+    print "a scrolling download requested from search url " + url_to_use
+    pr = requests.post(url_to_use, data = query_str)   
+    #pr_dict = json.loads(pr.text) 
+    #print "here's the keys in the response : " + str(pr_dict.keys())
+    #if 'error' in pr_dict:
+    #    print "got us an error: " + repr(pr_dict['error'])
+    return pr 
+     
 
 
 #If there would be results, but there is not because of IC filtering, report this.
@@ -120,10 +148,18 @@ def query_elasticsearch(completed_query, es_params, pull_motifs):
     search_url = ElasticsearchURL('atsnp_output', 
                                   from_result = es_params['from_result'], 
                                   page_size = es_params['page_size']).get_url()
+    es_result = None
+    is_download = not pull_motifs   #TODO: explicitly add an is_download parameter..
+    #if it is a download; call a function that streams the results.
+    #if it's not a download: 
     try: 
-        es_result = requests.post(search_url, 
-                                  data = completed_query, 
-                                  timeout = 100)
+        if is_download:
+            print "setting up a scrolling download... "
+            es_result = setup_scrolling_download(search_url, completed_query) 
+        else:
+            es_result = requests.post(search_url, 
+                                 data = completed_query, 
+                                 timeout = 100)
     except requests.exceptions.Timeout:
         print "machine at " + esNode + " timed out without response." 
     except requests.exceptions.ConnectionError:
@@ -145,6 +181,7 @@ def setup_and_run_query(request, query_class ):
     es_params = setup_paging_parameters(request)  
     #print "  request to API " + repr(request.data) 
     pull_motifs = check_for_download(request) #if True, get motif plotting data.
+    #pull motifs is false if this is a download.
     return query_elasticsearch(es_query, es_params, pull_motifs)
 
 def check_for_download(request):
@@ -172,6 +209,33 @@ def search_by_snpid(request):
 @api_view(['POST'])
 def search_by_genomic_location(request):
     return setup_and_run_query(request, GenomicLocationQuery)
+
+#No query is needed here. Just get the scroll ID and go from there.
+@api_view(['POST'])
+def continue_scrolling_download(request):
+    #Throw an error if scroll_id is not included.
+    #everything is already setup! 
+    #No other parameters should be included with the scroll continuation.
+    sid = request.data.get('scroll_id')
+
+    #TODO: factor this out.
+    machines_to_try = settings.ELASTICSEARCH_URLS[:]
+    random.shuffle(machines_to_try)
+    base = machines_to_try.pop()
+
+    url = '/'.join([base, '_search', 'scroll'])
+    #url = 'http://atsnp-db1:9200/_search/scroll'
+
+    q = { 'scroll_id' : sid, 'scroll' : '3m' }
+    q_str = json.dumps(q)
+    es_result = requests.post(url, data = q_str) 
+    pull_motifs = False  #This is for downloads; no need to include motifs.
+    data_back = get_data_out_of_es_result(es_result, pull_motifs) 
+    #data back SHOULD contain a scroll_id. 
+    print "in continue_scrolling_download, keys in data back: " + repr(data_back.keys())
+    return return_any_hits(data_back, pull_motifs)
+
+
 
 def get_one_item_from_elasticsearch_by_id(index_name, doc_type, id_of_item):
     #copied verbatim from the above method; should be refactored.
@@ -212,6 +276,12 @@ def grab_plotting_data_for_one_motif(for_doc_id, motifs_pulled=None):
            get_one_item_from_elasticsearch_by_id('motif_plotting_data', 
                                                  'motif_bits', which_motif)
         motif_data = motif_data.json()
+        # print "motif data keys; " + repr(motif_data.keys())
+        #this is straight up debugging. TODO: remove this.
+        #if '_source' not in motif_data.keys():
+        #    print "error : " + repr(motif_data['error'])
+        #    print "which motif; " + which_motif
+
         motif_data = motif_data['_source']
         my_dict = motif_data
         motif_data = \
