@@ -125,20 +125,21 @@ def setup_paging_parameters(request):
 #Handle this without the Elasticsearch helpers
 #Make sure the scroll ID gets passed back to the viewer app.
 def setup_scrolling_download(search_url, complete_query):
-    print "complete query: " + str(complete_query)
-    #The url that gets used by being passed in starts up ther. 
-    url_to_use  = \
-      'http://atsnp-db1.biostat.wisc.edu:9200/atsnp_data/atsnp_output/_search?scroll=1m&size=500' 
+    print "complete query to setup scrolling download: " + str(complete_query)
+    machines_to_try = settings.ELASTICSEARCH_URLS[:] 
+    random.shuffle(machines_to_try)
+    base = machines_to_try.pop()
+
+    scroll_args = '&'.join(['scroll=1m', 'size=500'])
+    full_endpoint = '?'.join(['_search', scroll_args])
+    url_to_use = '/'.join([ base, settings.ES_INDEX_NAMES['ATSNP_DATA'], 
+                     'atsnp_output', full_endpoint])
+
     query_to_use = {'query' : json.loads(complete_query)['query'] }
-    #del query_to_use['query']['sort']  #does this solve it?
     query_str = json.dumps(query_to_use) 
-    print "complete query for setting up scrolling download: " + query_str
-    print "a scrolling download requested from search url " + url_to_use
+    #print "complete query for setting up scrolling download: " + query_str
+    #print "a scrolling download requested from search url " + url_to_use
     pr = requests.post(url_to_use, data = query_str)   
-    #pr_dict = json.loads(pr.text) 
-    #print "here's the keys in the response : " + str(pr_dict.keys())
-    #if 'error' in pr_dict:
-    #    print "got us an error: " + repr(pr_dict['error'])
     return pr 
      
 
