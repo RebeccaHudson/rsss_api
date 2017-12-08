@@ -2,6 +2,7 @@ import json
 import requests
 from django.conf import settings
 import random
+from ElasticsearchURL import ElasticsearchURL
 
 #The purpose of this class is to work all of the space-saving data
 #transformations backwards.
@@ -41,13 +42,7 @@ class DataReconstructor(object):
         return red 
 
     def grab_snp_info_from_es(self, snpid):
-        machines_to_try = settings.ELASTICSEARCH_URLS[:]
-        random.shuffle(machines_to_try) 
-        #print "machines to try " + str(machines_to_try)
-        base = machines_to_try.pop()
-        url = '/'.join([ base,  settings.ES_INDEX_NAMES['SNP_INFO'],
-                         'sequence', snpid])
-        #select a basae url randomly.
+        url = ElasticsearchURL('sequence', id_to_get=snpid).get_url()
         d = requests.get(url)
         r = json.loads(d.text)
         try :

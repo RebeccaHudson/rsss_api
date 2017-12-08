@@ -8,7 +8,8 @@ import requests
 import json
 
 #Change the name of that file.
-from ElasticsearchURL import ElasticsearchURL, ElasticsearchResult
+from ElasticsearchURL import ElasticsearchURL 
+from ElasticsearchResult import ElasticsearchResult
 from ElasticsearchQuery import ElasticsearchAtsnpQuery
 from DataReconstructor import DataReconstructor
 from GenomicLocationQuery import GenomicLocationQuery

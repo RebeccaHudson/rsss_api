@@ -86,7 +86,8 @@ ELASTICSEARCH_PAGE_SIZE = 50  # this should be pretty large, ultimately.
 #
 ES_INDEX_NAMES = { 'ATSNP_DATA' : 'atsnp_data', #atsnp_reduced_test
                    'GENE_NAMES' : 'gencode_genes',
-                    'SNP_INFO'  : 'snp_info' }
+                    'SNP_INFO'  : 'snp_info',
+                    'MOTIF_BITS': 'motif_plotting_data' }
 
 
 AUTH_PASSWORD_VALIDATORS = [

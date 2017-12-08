@@ -111,7 +111,6 @@ def return_any_hits(data_returned, pull_motifs, query=None):
     
     serializer = ScoresRowSerializer(data_returned['data'], many = True)
     data_returned['data'] = serializer.data
-    #print "FOO -> data returned keys: " + repr(data_returned.keys())
     return Response(data_returned, status=status.HTTP_200_OK)
 
 #paging parameters are used on the ES URL.
@@ -125,20 +124,12 @@ def setup_paging_parameters(request):
 #Handle this without the Elasticsearch helpers
 #Make sure the scroll ID gets passed back to the viewer app.
 def setup_scrolling_download(search_url, complete_query):
-    print "complete query to setup scrolling download: " + str(complete_query)
-    machines_to_try = settings.ELASTICSEARCH_URLS[:] 
-    random.shuffle(machines_to_try)
-    base = machines_to_try.pop()
-
-    scroll_args = '&'.join(['scroll=1m', 'size=500'])
-    full_endpoint = '?'.join(['_search', scroll_args])
-    url_to_use = '/'.join([ base, settings.ES_INDEX_NAMES['ATSNP_DATA'], 
-                     'atsnp_output', full_endpoint])
-
+    #print "complete query to setup scrolling download: " + str(complete_query)
+    url = ElasticsearchURL('atsnp_output', page_size=600,
+                           scroll_info={'duration': '1m'}).get_url()
+    url_to_use = url
     query_to_use = {'query' : json.loads(complete_query)['query'] }
     query_str = json.dumps(query_to_use) 
-    #print "complete query for setting up scrolling download: " + query_str
-    #print "a scrolling download requested from search url " + url_to_use
     pr = requests.post(url_to_use, data = query_str)   
     return pr 
      
@@ -214,19 +205,11 @@ def search_by_genomic_location(request):
 #No query is needed here. Just get the scroll ID and go from there.
 @api_view(['POST'])
 def continue_scrolling_download(request):
+
     #Throw an error if scroll_id is not included.
-    #everything is already setup! 
     #No other parameters should be included with the scroll continuation.
     sid = request.data.get('scroll_id')
-
-    #TODO: factor this out.
-    machines_to_try = settings.ELASTICSEARCH_URLS[:]
-    random.shuffle(machines_to_try)
-    base = machines_to_try.pop()
-
-    url = '/'.join([base, '_search', 'scroll'])
-    #url = 'http://atsnp-db1:9200/_search/scroll'
-
+    url = ElasticsearchURL('atsnp_output', page_size=600, scroll_info={}).get_url()
     q = { 'scroll_id' : sid, 'scroll' : '3m' }
     q_str = json.dumps(q)
     es_result = requests.post(url, data = q_str) 
@@ -240,23 +223,9 @@ def continue_scrolling_download(request):
 
 def get_one_item_from_elasticsearch_by_id(index_name, doc_type, id_of_item):
     #copied verbatim from the above method; should be refactored.
-    machinesToTry = settings.ELASTICSEARCH_URLS[:]      
-    random.shuffle(machinesToTry)   #try machines in different order. 
-    keepTrying = True
-    while keepTrying is True:
-        if machinesToTry:
-            esNode = machinesToTry.pop()
-        else: 
-            keepTrying = False
-            return Response('No Elasticsearch machines responded. Contact Admins.', 
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-            continue #stop looping...
-        #esNode specifies the elasticSearch node we will attempt to search.
         try: 
             #queries for single datum details use elasticsearch's GET API.
-            url_base = esNode
-            search_url = '/'.join([url_base, index_name, doc_type, id_of_item])
-            #print "querying single item for detail view with url : " + search_url
+            search_url = ElasticsearchURL(doc_type, id_to_get=id_of_item).get_url()
             es_result = requests.get(search_url, timeout=100)
         except requests.exceptions.Timeout:
             print "machine at " + esNode + " timed out without response." 

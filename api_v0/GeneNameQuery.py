@@ -7,7 +7,8 @@ import json
 
 from AtsnpExceptions import *
 from GenomicLocationQuery import GenomicLocationQuery
-from ElasticsearchURL import ElasticsearchURL, ElasticsearchResult
+from ElasticsearchURL import ElasticsearchURL
+from ElasticsearchResult import ElasticsearchResult
 
 class GeneNameQuery(GenomicLocationQuery):
     def prepare_json_for_query(self):
