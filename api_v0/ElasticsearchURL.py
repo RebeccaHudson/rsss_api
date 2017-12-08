@@ -33,10 +33,10 @@ class ElasticsearchURL(object):
          elif data_type == 'motif_bits':
              name_of_index = settings.ES_INDEX_NAMES['MOTIF_BITS']
 
-         print "url_base : " +  url_base
-         print "name_of_index: " +  name_of_index
-         print "data_type: " +  data_type
-         print "operation: " +  operation
+         #print "url_base : " +  url_base
+         #print "name_of_index: " +  name_of_index
+         #print "data_type: " +  data_type
+         #print "operation: " +  operation
 
          url_parts = [url_base, name_of_index, data_type]
          get_args = []
@@ -62,7 +62,7 @@ class ElasticsearchURL(object):
              self.url = '?'.join([bare_url,'&'.join(get_args)])
          else:
              self.url = bare_url
-         print "url created: " + self.url
+         #print "url created: " + self.url
 
     def setup_scroll_args(self, scroll_info):
         scroll_args = []
@@ -80,22 +80,6 @@ class ElasticsearchURL(object):
        machines_to_try = settings.ELASTICSEARCH_URLS[:]
        random.shuffle(machines_to_try)
        return machines_to_try.pop()
-       #while len(machines_to_try) > 0:
-       #    machine_to_try = machines_to_try.pop()
-       #    url_to_try = '/'.join([machine_to_try,
-       #                           settings.ES_INDEX_NAMES['ATSNP_DATA'],
-       #                           'atsnp_output','_search?size=1'])
-       #    es_check_response = None
-       #    try:
-       #        es_check_response = requests.get(url_to_try, timeout=50)  
-       #    except requests.exceptions.Timeout:
-       #        print "request for search at : " + url_to_try +  " timed out."  
-       #    except requests.exceptions.ConnectionError:
-       #        print "request for " + url_to_try + " has been refused"
-       #    else:        
-       #        return machine_to_try
-       #    return None
-
 
     def get_url(self):
         return self.url
