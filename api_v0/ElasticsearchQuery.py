@@ -2,6 +2,7 @@ import json
 from rest_framework.response import Response
 from rest_framework import status
 from AtsnpExceptions import * 
+from django.conf import settings
 #A class from which all of our queries inherit.
 
 class ElasticsearchAtsnpQuery(object):
@@ -19,6 +20,7 @@ class ElasticsearchAtsnpQuery(object):
         pvd = self.get_pvalue_dict()
         return self.prepare_json_for_pvalue_filter_directional(pvd)
 
+    #TODO: find out if > 1 pvalue is required.
     def get_pvalue_dict(self):
         pv_dict = {}
         #print "request " + str(request.data)
@@ -26,51 +28,80 @@ class ElasticsearchAtsnpQuery(object):
             key  = "_".join(['pvalue', pv_name])
             if self.request.data.has_key(key):
                 pv_dict[key] = self.request.data[key]
-        if 'pvalue_rank' not in pv_dict:
-            pv_dict[key] = settings.DEFAULT_P_VALUE
-        if self.request.data.has_key('pvalue_snp_direction'):
-           pv_dict['pvalue_snp_direction'] = self.request.data['pvalue_snp_direction'] 
-        if self.request.data.has_key('pvalue_ref_direction'):
-           pv_dict['pvalue_ref_direction'] = self.request.data['pvalue_ref_direction']
+                #if that p-value is included, check for its direction.
+                key = '_'.join(['pvalue', pv_name, 'direction'])    
+                if self.request.data.has_key(key):
+                    pv_dict[key] = self.request.data[key] 
 
+        #if no p-values are included, set rank from defaults.
+        #(should not be triggered by that atSNP web interface)
+        if not pv_dict:
+            pv_dict['pvalue_rank'] = settings.DEFAULT_P_VALUE
         return pv_dict     
 
+
+
+    #Don't require less zero if the direction is < 
+    def fix_lte_for_zero_pvalues(self, operator, pvalue):
+        if operator == 'lt' and pvalue == 0:
+            return 'lte'        
+        return operator 
+
+    #(The terms direction and operator are used synonomously here)
     def prepare_json_for_pvalue_filter_directional(self, pvalue_dict):
        #pvalue_snp is missing at this point..
        #print "prior to processing " + str(pvalue_dict)
-       dict_for_filter = { "filter": [
-         {
-           "range" : {
-               "pval_rank": {
-                   "lte":  str(pvalue_dict['pvalue_rank']) 
-               }
-           }
-         }
-       ]
-       }
-       if 'pvalue_ref' in  pvalue_dict:
-           pvalue_ref_direction = pvalue_dict['pvalue_ref_direction']
-           if pvalue_ref_direction == 'lt' and pvalue_dict['pvalue_ref'] == 0:
-               pvalue_ref_direction = 'lte' 
-           #either lte or gte
-           dict_for_filter['filter'].append({
-               "range" : {
-                   "pval_ref": {
-                       pvalue_ref_direction:  str(pvalue_dict['pvalue_ref']) 
-                   }
-               }
-           })
-       if 'pvalue_snp' in pvalue_dict:  
-           pvalue_snp_direction = pvalue_dict['pvalue_snp_direction']
-           if pvalue_snp_direction == 'lt' and pvalue_dict['pvalue_snp'] == 0:
-               pvalue_snp_direction = 'lte' #don't exclude records w/ pvalue = 0
-           dict_for_filter['filter'].append({
-           "range" : {
-               "pval_snp": {
-                   pvalue_snp_direction:  str(pvalue_dict['pvalue_snp']) 
-                          }
-                     }
-           })
+       dict_for_filter = { "filter" : [] }
+       #pvalue rank always gets less than or equal to.
+       for one_pv in ['rank', 'ref', 'snp']:
+           pvalue_name = '_'.join(['pvalue', one_pv])
+           direction = None
+           if pvalue_name in pvalue_dict: 
+               pvalue = pvalue_dict[pvalue_name]
+               if one_pv == 'rank':
+                   direction = 'lte'
+               else: 
+                   which_direction = '_'.join([pvalue_name, 'direction'])
+                   direction = \
+                    self.fix_lte_for_zero_pvalues(pvalue_dict[which_direction],
+                                                  pvalue)
+               pvalue_name_in_index = '_'.join(['pval', one_pv])
+               dict_for_filter['filter'].append({
+                   "range" : {
+                       pvalue_name_in_index : { direction : str(pvalue) }
+                    }
+                })
+         
+       #if 'pvalue_rank' in pvalue_dict:
+       #    dict_for_filter['filter'].append({ 
+       #    "range" : {
+       #        "pval_rank": { "lte":  str(pvalue_dict['pvalue_rank']) }
+       #              }
+       #    })
+       #
+       #if 'pvalue_ref' in  pvalue_dict:
+       #    pvalue_ref_direction = pvalue_dict['pvalue_ref_direction']
+       #    if pvalue_ref_direction == 'lt' and pvalue_dict['pvalue_ref'] == 0:
+       #        pvalue_ref_direction = 'lte' 
+       #    #either lte or gte
+       #    dict_for_filter['filter'].append({
+       #        "range" : {
+       #            "pval_ref": {
+       #                pvalue_ref_direction:  str(pvalue_dict['pvalue_ref']) 
+       #            }
+       #        }
+       #    })
+       #if 'pvalue_snp' in pvalue_dict:  
+       #    pvalue_snp_direction = pvalue_dict['pvalue_snp_direction']
+       #    if pvalue_snp_direction == 'lt' and pvalue_dict['pvalue_snp'] == 0:
+       #        pvalue_snp_direction = 'lte' #don't exclude records w/ pvalue = 0
+       #    dict_for_filter['filter'].append({
+       #    "range" : {
+       #        "pval_snp": {
+       #            pvalue_snp_direction:  str(pvalue_dict['pvalue_snp']) 
+       #                   }
+       #              }
+       #    })
        return dict_for_filter 
 
     #For sort, 'coordinate' means 'chr' and 'pos'
