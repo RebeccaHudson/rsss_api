@@ -99,7 +99,7 @@ def return_any_hits(data_returned, pull_motifs, query=None):
             query_elasticsearch(query_minus_motif_ic_filter, peek_params, False)
            if hits_without_ic_filtering.status_code is not 204:
                special_msg= 'INFO: No results match your query. However, if '+\
-                        ' all of the levels of motif information content '   +\
+                        ' all of the levels of motif degeneracy '   +\
                      'were included, your search would return at least 1 result.'
                return Response(special_msg, status=207) 
         return Response('No matches.', status=status.HTTP_204_NO_CONTENT)
