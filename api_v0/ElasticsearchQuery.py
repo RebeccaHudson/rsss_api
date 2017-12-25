@@ -97,84 +97,24 @@ class ElasticsearchAtsnpQuery(object):
     def prepare_json_for_pvalue_filter_default(self, pvalue_dict):
        #pvalue_snp is missing at this point..
        dict_for_filter = { "filter" : [] }
-       dict_for_filter['filter'].append({
-           "range" : {
-               'pval_rank' : { 'lte': str(pvalue_dict['pvalue_rank']) }
-            }
-       })
+       
+       pval_rank_clause = self.setup_range_clause('pval_rank', 
+              {"operator" : "lte", "cutoff" :pvalue_dict['pvalue_rank'] } )
+       dict_for_filter['filter'].append(pval_rank_clause)
+
+       #dict_for_filter['filter'].append({
+       #    "range" : {
+       #        'pval_rank' : { 'lte': str(pvalue_dict['pvalue_rank']) }
+       #     }
+       #})
        compound_filter = {"bool": {"minimum_should_match" : 1, "should":[] }}
        gain_condition = self.setup_one_pval_case("gain")
        compound_filter["bool"]["should"].append(gain_condition)  
-       #compound_filter["bool"]["should"].append(
-       #  { "bool" : { "must" : [
-       #                        { "range": { "pval_ref": { "lte": "0.002" } } },
-       #                        { "range": { "pval_snp": { "lte": "0.002" } } }
-       #                      ]
-       #             }
-       #  })
 
        loss_condition = self.setup_one_pval_case("loss")
        compound_filter["bool"]["should"].append(loss_condition)  
-       #compound_filter["bool"]["should"].append(
-       #  { "bool" : { "must" : [
-       #                        { "range": { "pval_ref": { "gte": "0.002" } } },
-       #                        { "range": { "pval_snp": { "gte": "0.002" } } }
-       #                      ]
-       #             }
-       #  })
        dict_for_filter["filter"].append(compound_filter) 
        return dict_for_filter 
- 
-  
-
-
-
-       #pvalue rank always gets less than or equal to.
-       for one_pv in ['rank', 'ref', 'snp']:
-           pvalue_name = '_'.join(['pvalue', one_pv])
-           direction = None
-           if pvalue_name in pvalue_dict: 
-               pvalue = pvalue_dict[pvalue_name]
-               if one_pv == 'rank':
-                   direction = 'lte'
-               else: 
-                   which_direction = '_'.join([pvalue_name, 'direction'])
-                   direction = \
-                    self.fix_lte_for_zero_pvalues(pvalue_dict[which_direction],
-                                                  pvalue)
-               pvalue_name_in_index = '_'.join(['pval', one_pv])
-               dict_for_filter['filter'].append({
-                   "range" : {
-                       pvalue_name_in_index : { direction : str(pvalue) }
-                    }
-                })
-       return dict_for_filter 
-
-
-
-
-
-
-       #For query with extra conditions added: 
-       #try to use this twice -> 
-   
-
-       #in setup_pvalue_filter, check the p-values for the condition where:
-       #     p-value rank is set and the other 2 are not. 
-       #     if this condition is present:
-       #         create 2 pvalue-dicts based on the one that was provided by self.get_pvalue_dict()
-       #         use prepare_json_for_pvalue_filter_directional on each of them. 
-       #         bool them together using proper Elasticsearch query syntax.
-       #prepare 2 p-value filters, 'or' them.
-       #     if this condition is not present:
-       #       do exactly what has been done up until now.
-
-
-
-
-
-
-
 
     #For sort, 'coordinate' means 'chr' and 'pos'
     #Replace coordinate with the fields chr and pos, in that order.
