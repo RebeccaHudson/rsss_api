@@ -139,3 +139,17 @@ HARD_LIMITS = {
   'ELASTIC_MAX_RESULT_WINDOW' : 10000
 }
 
+#TODO: make the naming conventions match the queries
+GAIN_AND_LOSS_DEFS = {
+    "gain" : { 
+        "pval_ref" : { 'operator': 'gt', 'cutoff' : 0.05 },
+        "pval_snp" : { 'operator': 'lte', 'cutoff' : 0.05 },
+    },
+    "loss" : {
+        "pval_ref" : { 'operator': 'lte', 'cutoff' : 0.05 },
+        "pval_snp" : { 'operator': 'gt' , 'cutoff' : 0.05 }
+    }
+}
+
+
+
