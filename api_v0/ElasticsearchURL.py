@@ -52,7 +52,11 @@ class ElasticsearchURL(object):
                  if 'duration' in scroll_info:
                      get_args.append('scroll=' + scroll_info['duration'])
                  else:
+                     #Use a bare URL to continue a scroll
+                     get_args = []
+                     url_parts = [url_base, operation]
                      url_parts.append('scroll')
+
              if from_result is not None:
                  get_args.append("from=" + str(from_result))
 
