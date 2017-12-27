@@ -165,10 +165,14 @@ def setup_and_run_query(request, query_class ):
     try:
         es_query = query_class(request).get_query()
     except InvalidQueryError as e:
-        #print "Responding with an Invalid query error: " + e.message
+        print "Responding with an Invalid query error: " + e.message
         return Response(e.message, status=status.HTTP_400_BAD_REQUEST)
+    except MissingBackendDataError as e:
+        print "Missing Backend Data error: "  
+        return Response("INFO: " + e.message, status=207 )
+    #looks like no text responses can be sent with a 204
     except NoDataFoundError as e:
-        #print "Responding a No Data Found error: " + e.message
+        print "Responding a No Data Found error: " + e.message
         return Response(e.message, status=status.HTTP_204_NO_CONTENT)
     es_params = setup_paging_parameters(request)  
     #print "  request to API " + repr(request.data) 

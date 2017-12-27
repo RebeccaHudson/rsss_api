@@ -47,6 +47,7 @@ class GeneNameQuery(GenomicLocationQuery):
         es_result = ElasticsearchResult(requests.post(es_url, data=json_query))
         hits = es_result.get_result() 
         if hits['hitcount'] == 0:
-            raise NoDataFoundError('Gene name not found.')
+            print "gene name not found. unreported"
+            raise MissingBackendDataError('Gene name not found.')
         return hits['data'][0]
 
