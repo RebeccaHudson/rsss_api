@@ -209,18 +209,24 @@ def search_by_genomic_location(request):
 #No query is needed here. Just get the scroll ID and go from there.
 @api_view(['POST'])
 def continue_scrolling_download(request):
-
     #Throw an error if scroll_id is not included.
     #No other parameters should be included with the scroll continuation.
     sid = request.data.get('scroll_id')
-    url = ElasticsearchURL('atsnp_output', page_size=600, scroll_info={}).get_url()
+
+    #the continuing of a scroll isn't supposed to include a data type.
+    url = ElasticsearchURL('atsnp_output', scroll_info={}).get_url()
+
+    print "here's the url " + url
     q = { 'scroll_id' : sid, 'scroll' : '3m' }
+    #print "continuing scrolling download "  + repr(q)
     q_str = json.dumps(q)
     es_result = requests.post(url, data = q_str) 
     pull_motifs = False  #This is for downloads; no need to include motifs.
+    #print "dir(es_result)" + repr(dir(es_result))
+    #print "(es_result.text)" + repr(es_result.text)
     data_back = get_data_out_of_es_result(es_result, pull_motifs) 
     #data back SHOULD contain a scroll_id. 
-    print "in continue_scrolling_download, keys in data back: " + repr(data_back.keys())
+    #print "in continue_scrolling_download, keys in data back: " + repr(data_back.keys())
     return return_any_hits(data_back, pull_motifs)
 
 
