@@ -135,7 +135,6 @@ class DataReconstructor(object):
 
     #getting the SNP sequence.
     def get_snp_position(self, atsnp_data):
-        #actual_start = min(int(atsnp_data['snp_start']), int(atsnp_data['ref_start']))
         actual_start = atsnp_data['seq_start']
         snp_pos = 31 - (actual_start - 1)
         return snp_pos
