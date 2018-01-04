@@ -125,7 +125,7 @@ def setup_paging_parameters(request):
 #Make sure the scroll ID gets passed back to the viewer app.
 def setup_scrolling_download(search_url, complete_query):
     #print "complete query to setup scrolling download: " + str(complete_query)
-    url = ElasticsearchURL('atsnp_output', page_size=600,
+    url = ElasticsearchURL('atsnp_output', page_size=1500,
                            scroll_info={'duration': '1m'}).get_url()
     url_to_use = url
     query_to_use = {'query' : json.loads(complete_query)['query'] }
@@ -146,7 +146,6 @@ def query_elasticsearch(completed_query, es_params, pull_motifs):
     #if it's not a download: 
     try: 
         if is_download:
-            print "setting up a scrolling download... "
             es_result = setup_scrolling_download(search_url, completed_query) 
         else:
             es_result = requests.post(search_url, 
@@ -216,23 +215,16 @@ def continue_scrolling_download(request):
     #the continuing of a scroll isn't supposed to include a data type.
     url = ElasticsearchURL('atsnp_output', scroll_info={}).get_url()
 
-    print "here's the url " + url
     q = { 'scroll_id' : sid, 'scroll' : '3m' }
-    #print "continuing scrolling download "  + repr(q)
     q_str = json.dumps(q)
     es_result = requests.post(url, data = q_str) 
     pull_motifs = False  #This is for downloads; no need to include motifs.
-    #print "dir(es_result)" + repr(dir(es_result))
-    #print "(es_result.text)" + repr(es_result.text)
     data_back = get_data_out_of_es_result(es_result, pull_motifs) 
-    #data back SHOULD contain a scroll_id. 
-    #print "in continue_scrolling_download, keys in data back: " + repr(data_back.keys())
     return return_any_hits(data_back, pull_motifs)
 
 
 
 def get_one_item_from_elasticsearch_by_id(index_name, doc_type, id_of_item):
-    #copied verbatim from the above method; should be refactored.
         try: 
             #queries for single datum details use elasticsearch's GET API.
             search_url = ElasticsearchURL(doc_type, id_to_get=id_of_item).get_url()
@@ -256,11 +248,6 @@ def grab_plotting_data_for_one_motif(for_doc_id, motifs_pulled=None):
            get_one_item_from_elasticsearch_by_id('motif_plotting_data', 
                                                  'motif_bits', which_motif)
         motif_data = motif_data.json()
-        # print "motif data keys; " + repr(motif_data.keys())
-        #this is straight up debugging. TODO: remove this.
-        #if '_source' not in motif_data.keys():
-        #    print "error : " + repr(motif_data['error'])
-        #    print "which motif; " + which_motif
 
         motif_data = motif_data['_source']
         my_dict = motif_data
