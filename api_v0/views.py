@@ -130,7 +130,9 @@ def setup_scrolling_download(search_url, complete_query):
     url_to_use = url
     query_to_use = {'query' : json.loads(complete_query)['query'] }
     query_str = json.dumps(query_to_use) 
-    pr = requests.post(url_to_use, data = query_str)   
+   
+    header =  {'Content-Type': 'application/json'}
+    pr = requests.post(url_to_use, data = query_str, headers=header)   
     return pr 
      
 
@@ -148,9 +150,11 @@ def query_elasticsearch(completed_query, es_params, pull_motifs):
         if is_download:
             es_result = setup_scrolling_download(search_url, completed_query) 
         else:
+            header =  {'Content-Type': 'application/json'}
             es_result = requests.post(search_url, 
                                  data = completed_query, 
-                                 timeout = 100)
+                                 timeout = 100, 
+                                 headers = header)
     except requests.exceptions.Timeout:
         print "machine at " + esNode + " timed out without response." 
     except requests.exceptions.ConnectionError:
@@ -217,7 +221,9 @@ def continue_scrolling_download(request):
 
     q = { 'scroll_id' : sid, 'scroll' : '3m' }
     q_str = json.dumps(q)
-    es_result = requests.post(url, data = q_str) 
+
+    header =  {'Content-Type': 'application/json'}
+    es_result = requests.post(url, data = q_str, headers = header) 
     pull_motifs = False  #This is for downloads; no need to include motifs.
     data_back = get_data_out_of_es_result(es_result, pull_motifs) 
     return return_any_hits(data_back, pull_motifs)
@@ -228,6 +234,7 @@ def get_one_item_from_elasticsearch_by_id(index_name, doc_type, id_of_item):
         try: 
             #queries for single datum details use elasticsearch's GET API.
             search_url = ElasticsearchURL(doc_type, id_to_get=id_of_item).get_url()
+            print "grabbing single item: " + search_url
             es_result = requests.get(search_url, timeout=100)
         except requests.exceptions.Timeout:
             print "machine at " + esNode + " timed out without response." 
