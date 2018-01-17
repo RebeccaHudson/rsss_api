@@ -234,7 +234,6 @@ def get_one_item_from_elasticsearch_by_id(index_name, doc_type, id_of_item):
         try: 
             #queries for single datum details use elasticsearch's GET API.
             search_url = ElasticsearchURL(doc_type, id_to_get=id_of_item).get_url()
-            print "grabbing single item: " + search_url
             es_result = requests.get(search_url, timeout=100)
         except requests.exceptions.Timeout:
             print "machine at " + esNode + " timed out without response." 
