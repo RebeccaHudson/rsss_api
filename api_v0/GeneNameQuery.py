@@ -44,7 +44,8 @@ class GeneNameQuery(GenomicLocationQuery):
         j_dict = {"query":{"match":{"gene_symbol":gene_name}}} 
         json_query = json.dumps(j_dict)
         es_url = ElasticsearchURL('gencode_gene_symbols', page_size=1).get_url() 
-        es_result = ElasticsearchResult(requests.post(es_url, data=json_query))
+        header = { 'Content-Type' : 'application/json' }
+        es_result = ElasticsearchResult(requests.post(es_url, data=json_query, headers=header))
         hits = es_result.get_result() 
         if hits['hitcount'] == 0:
             print "gene name not found. unreported"

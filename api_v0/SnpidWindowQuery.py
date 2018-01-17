@@ -46,7 +46,8 @@ class SnpidWindowQuery(GenomicLocationQuery):
     def get_snpid_data(self, numeric_snpid):
         es_url = ElasticsearchURL('atsnp_output', page_size=1).get_url() 
         es_query = json.dumps({"query":{"match":{"snpid":numeric_snpid }}})
-        es_result = ElasticsearchResult(requests.post(es_url, data=es_query))
+        header = { 'Content-Type' : 'application/json' }
+        es_result = ElasticsearchResult(requests.post(es_url, data=es_query, headers = header))
         hits = es_result.get_result()
         if hits['hitcount'] == 0:
             raise NoDataFoundError('No location available for SNPid ' +\
